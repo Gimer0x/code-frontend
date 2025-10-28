@@ -1,0 +1,462 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Line clamp utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Solidity Syntax Highlighting */
+.hljs {
+  background: #1e293b !important; /* slate-800 */
+  color: #e2e8f0 !important; /* slate-200 */
+}
+
+/* Comments - Light Green */
+.hljs-comment,
+.hljs-quote {
+  color: #82c482 !important;
+}
+
+/* Keywords - Purple/Magenta */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-type,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-code,
+.hljs-deletion {
+  color: #c678dd !important;
+}
+
+/* Strings - Green */
+.hljs-string,
+.hljs-doctag {
+  color: #98c379 !important;
+}
+
+/* Types/Identifiers - Orange/Yellow */
+.hljs-title,
+.hljs-section,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-strong {
+  color: #e5c07b !important;
+}
+
+/* Numbers - Light Blue */
+.hljs-number,
+.hljs-literal {
+  color: #61afef !important;
+}
+
+/* Operators and Punctuation - Soft White */
+.hljs-operator,
+.hljs-punctuation {
+  color: #abb2bf !important;
+}
+
+/* Solidity specific keywords */
+.hljs .solidity-keyword {
+  color: #c678dd !important;
+}
+
+.hljs .solidity-type {
+  color: #e5c07b !important;
+}
+
+.hljs .solidity-string {
+  color: #98c379 !important;
+}
+
+.hljs .solidity-comment {
+  color: #82c482 !important;
+}
+
+.hljs .solidity-number {
+  color: #61afef !important;
+}
+
+/* Force darker background for code blocks */
+pre code.hljs,
+pre code[class*="language-"],
+.hljs,
+code.hljs {
+  background: #0f172a !important; /* slate-900 */
+  color: #f1f5f9 !important; /* slate-100 */
+}
+
+/* Override any highlight.js background */
+pre {
+  background: #0f172a !important; /* slate-900 */
+}
+
+/* Force our background on all code elements */
+div.bg-slate-900 pre,
+div.bg-slate-900 pre code,
+div.bg-slate-900 pre code.hljs {
+  background: #0f172a !important; /* slate-900 */
+  color: #f1f5f9 !important; /* slate-100 */
+}
+
+/* Make Solidity comments italic - more specific targeting */
+.hljs-comment,
+.hljs-quote,
+code .hljs-comment,
+code .hljs-quote,
+pre code .hljs-comment,
+pre code .hljs-quote,
+pre code[class*="language-solidity"] .hljs-comment,
+pre code[class*="language-solidity"] .hljs-quote,
+code[class*="language-solidity"] .hljs-comment,
+code[class*="language-solidity"] .hljs-quote,
+div.bg-slate-900 pre code .hljs-comment,
+div.bg-slate-900 pre code .hljs-quote {
+  font-style: italic !important;
+  color: #82c482 !important; /* Light green for comments */
+}
+
+/* Target comments in Solidity code blocks specifically */
+pre code.language-solidity .hljs-comment,
+pre code.language-solidity .hljs-quote,
+code.language-solidity .hljs-comment,
+code.language-solidity .hljs-quote {
+  font-style: italic !important;
+  color: #82c482 !important;
+}
+
+/* Ultra-specific targeting for the exact structure */
+div.bg-slate-900 pre code.hljs.language-solidity .hljs-comment,
+div.bg-slate-900 pre code.hljs.language-solidity .hljs-quote {
+  font-style: italic !important;
+  color: #82c482 !important;
+}
+
+/* Removed empty CSS rules */
+
+/* Force syntax highlighting to be visible */
+div.bg-slate-900 pre code[class*="language-solidity"] span,
+pre code[class*="language-solidity"] span {
+  display: inline !important;
+  color: inherit !important;
+}
+
+/* Ensure our inline styles take precedence */
+div.bg-slate-900 pre code[class*="language-solidity"] span[style],
+pre code[class*="language-solidity"] span[style] {
+  color: inherit !important;
+  font-style: inherit !important;
+  font-weight: inherit !important;
+}
+
+/* Solidity syntax highlighting classes for lesson viewer */
+.text-gray-500 {
+  color: #6b7280 !important;
+  font-style: italic;
+}
+
+.text-green-400 {
+  color: #4ade80 !important;
+}
+
+.text-blue-300 {
+  color: #93c5fd !important;
+}
+
+.text-blue-400 {
+  color: #60a5fa !important;
+  font-weight: 600;
+}
+
+/* Prevent automatic symbol conversion in textareas and all elements */
+textarea, input, [contenteditable], pre, code {
+  font-variant-ligatures: none !important;
+  text-rendering: optimizeSpeed !important;
+  -webkit-font-feature-settings: "liga" 0 !important;
+  font-feature-settings: "liga" 0 !important;
+  -webkit-text-size-adjust: 100% !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Prevent macOS text substitution */
+* {
+  -webkit-text-size-adjust: 100% !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* ContentEditable placeholder */
+[contenteditable]:empty:before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+[contenteditable]:focus:before {
+  content: none;
+}
+
+/* Ace Editor Enhanced Styling - Beautiful Dark Theme */
+.ace_gutter {
+  background-color: #1e293b !important; /* slate-800 - matches application background */
+  color: #e2e8f0 !important; /* Slate-200 - soft, readable text */
+  border-right: none !important; /* Remove separator line */
+  font-weight: 500 !important;
+  padding-left: 8px !important;
+  padding-right: 12px !important; /* Increased right padding for spacing */
+  width: 50px !important; /* Increased width to accommodate padding */
+}
+
+.ace_gutter-cell {
+  color: #e2e8f0 !important; /* Slate-200 - soft, readable text */
+  font-weight: 500 !important;
+  text-align: right !important;
+  background-color: #1e293b !important; /* slate-800 - matches application background */
+  padding: 0 8px !important;
+}
+
+.ace_gutter-layer {
+  background-color: #1e293b !important; /* slate-800 - matches application background */
+}
+
+.ace_editor {
+  background-color: #1e293b !important; /* slate-800 - matches application background */
+  color: #e2e8f0 !important; /* Slate-200 - soft, readable text */
+  /* Performance optimizations for smooth resizing */
+  will-change: auto !important;
+  transform: translateZ(0) !important; /* Force hardware acceleration */
+  /* Layout fixes for empty content */
+  min-height: 200px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Fix scroller positioning to match gutter width */
+.ace_scroller {
+  left: 50px !important;
+}
+
+/* Ensure gutter cells have the correct background */
+.ace_gutter-cell,
+.ace_gutter-cell.ace_gutter-cell,
+.ace_gutter-cell.ace_gutter-cell.ace_gutter-cell {
+  background-color: #1e293b !important; /* slate-800 - matches application background */
+}
+
+/* Override Ace Editor default theme styles - only background colors */
+.ace-tm .ace_gutter,
+.ace-tm .ace_gutter-layer,
+.ace-tm .ace_gutter-cell {
+  background-color: #1e293b !important; /* slate-800 - matches application background */
+  background: #1e293b !important;
+}
+
+.ace_content {
+  background-color: #1e293b !important; /* slate-800 - matches application background */
+  color: #e2e8f0 !important; /* Slate-200 - soft, readable text */
+}
+
+.ace_active-line {
+  background-color: #0f172a  !important; /* Slate-800 - subtle but distinct */
+}
+
+.ace_active-line-gutter {
+  background-color: #0f172a  !important; /* Slate-800 - matches active line for unity */
+}
+
+/* Basic text color to ensure visibility */
+.ace_editor .ace_text-layer,
+.ace_editor .ace_line,
+.ace_editor .ace_content {
+  color: #e2e8f0 !important; /* Light gray text */
+}
+
+/* Light yellow cake for storage keywords (not bold) */
+.ace_editor .ace_text-layer .ace_storage,
+.ace_editor .ace_line .ace_storage,
+.ace_editor .ace_content .ace_storage,
+.ace_editor .ace_storage {
+  color: #fbbf24 !important; /* Light yellow cake for storage keywords */
+  font-weight: normal !important;
+}
+
+
+/* Custom Solidity keyword colors - higher specificity to override default */
+.ace_editor .ace_text-layer .ace_payable,
+.ace_editor .ace_line .ace_payable,
+.ace_editor .ace_content .ace_payable,
+.ace_editor .ace_payable {
+  color: #42C4A8 !important; /* Subtle cake green for visibility modifiers */
+  font-weight: bold !important;
+}
+
+/* Blue keywords for Solidity core keywords */
+.ace_editor .ace_text-layer .ace_blue_keyword,
+.ace_editor .ace_line .ace_blue_keyword,
+.ace_editor .ace_content .ace_blue_keyword,
+.ace_editor .ace_blue_keyword {
+  color: #60a5fa !important; /* Blue for core Solidity keywords */
+  font-weight: bold !important;
+}
+
+/* Blue for brackets and symbols */
+.ace_editor .ace_text-layer .ace_bracket,
+.ace_editor .ace_line .ace_bracket,
+.ace_editor .ace_content .ace_bracket,
+.ace_editor .ace_bracket {
+  color: #60a5fa !important; /* Blue for brackets */
+  font-weight: bold !important;
+}
+
+/* Red-pink for constructor */
+.ace_editor .ace_text-layer .ace_constructor,
+.ace_editor .ace_line .ace_constructor,
+.ace_editor .ace_content .ace_constructor,
+.ace_editor .ace_constructor {
+  color: #ff6b9d !important; /* Red-pink for constructor */
+  font-weight: bold !important;
+}
+
+/* Red for control flow keywords */
+.ace_editor .ace_text-layer .ace_red_keyword,
+.ace_editor .ace_line .ace_red_keyword,
+.ace_editor .ace_content .ace_red_keyword,
+.ace_editor .ace_red_keyword {
+  color: #ff4757 !important; /* Red for control flow keywords */
+  font-weight: bold !important;
+}
+
+/* Darker subtle blue/gray for global variables (bold) */
+.ace_editor .ace_text-layer .ace_purple_keyword,
+.ace_editor .ace_line .ace_purple_keyword,
+.ace_editor .ace_content .ace_purple_keyword,
+.ace_editor .ace_purple_keyword {
+  color: #475569 !important; /* Darker subtle blue/gray for global variables */
+  font-weight: bold !important;
+}
+
+
+
+
+.ace_editor .ace_string {
+  color: #D4A574 !important; /* Light orange/brown color for strings */
+}
+
+/* Optimized CSS - removed :contains() selectors for better performance */
+
+/* Layout fixes for text layer to prevent breaking when empty */
+.ace_text-layer {
+  min-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding-left: 8px !important; /* Add left padding for spacing from gutter */
+}
+
+.ace_content {
+  min-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding-left: 8px !important; /* Add left padding for spacing from gutter */
+}
+
+.ace_editor .ace_comment {
+  color: #6b8e6b !important; /* Muted olive green for comments */
+  font-style: italic !important;
+}
+
+.ace_editor .ace_number {
+  color: #f78c6c !important; /* Soft coral - warm numeric accent */
+}
+
+/* Additional number selectors for Ace Editor */
+.ace_editor .ace_numeric,
+.ace_editor .ace_constant.ace_numeric,
+.ace_editor .ace_constant.ace_number,
+.ace_editor .ace_literal.ace_numeric,
+.ace_editor .ace_literal.ace_number {
+  color: #f78c6c !important; /* Soft coral - warm numeric accent */
+}
+
+.ace_editor .ace_type {
+  color: #82aaff !important; /* Developer blue - clarity for types/interfaces */
+  font-weight: bold !important;
+}
+
+.ace_editor .ace_function {
+  color: #f8f8f2 !important; /* Light neutral - keeps functions legible */
+  font-weight: bold !important;
+}
+
+.ace_editor .ace_identifier {
+  color: #e2e8f0 !important; /* Slate-200 - soft, readable text */
+}
+
+.ace_editor .ace_operator {
+  color: #89ddff !important; /* Cool cyan - balanced against purple keywords */
+}
+
+.ace_editor .ace_punctuation {
+  color: #cbd5e1 !important; /* Slate-300 - subtle structure tone */
+}
+
+.ace_editor .ace_bracket {
+  color: #cbd5e1 !important; /* Slate-300 - subtle structure tone */
+}
+
+/* Ace Editor line numbers styling */
+.ace_gutter .ace_gutter-cell {
+  color: #e2e8f0 !important; /* Slate-200 - soft, readable text */
+  font-weight: 500 !important;
+  text-align: right !important;
+  background-color: #1e293b !important; /* slate-800 - matches application background */
+  padding: 0 8px !important;
+}
+
+/* Ensure Ace Editor respects our theme */
+.ace_editor.ace-tomorrow_night {
+  background-color: #1e293b !important; /* slate-800 - matches application background */
+  color: #e2e8f0 !important; /* Slate-200 - soft, readable text */
+}
+
+.ace_editor.ace-tomorrow_night .ace_gutter {
+  background-color: #1e293b !important; /* slate-800 - matches application background */
+  color: #e2e8f0 !important; /* Slate-200 - soft, readable text */
+  border-right: none !important; /* Remove separator line */
+}
