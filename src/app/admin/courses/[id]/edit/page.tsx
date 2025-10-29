@@ -10,7 +10,7 @@ import ImageUpload from '@/components/ImageUpload'
 import CodeEditor from '@/components/CodeEditor'
 import CompileButton, { CompilationResultDisplay } from '@/components/CompileButton'
 import AdminTestButton from '@/components/AdminTestButton'
-import { TestResultsDisplay } from '@/components/TestButton'
+import TestResultDisplay from '@/components/TestResultDisplay'
 import { renderMarkdown, openMarkdownPreviewInNewWindow } from '@/lib/markdownUtils'
 
 interface User {
@@ -1692,7 +1692,7 @@ export default function EditCourse() {
                                       <div className="flex-1 flex flex-col">
                                         {/* Test Results at the top */}
                                         {testExecutionResult && (
-                                          <TestResultsDisplay 
+                                          <TestResultDisplay 
                                             result={testExecutionResult} 
                                             className="mb-4"
                                           />
@@ -1707,6 +1707,7 @@ export default function EditCourse() {
                                             solutionCode={getSelectedLesson()?.solutionCode || ''}
                                             onTestResult={setTestExecutionResult}
                                             className="flex-shrink-0"
+                                            courseId={course?.id || ''}
                                           />
                                         </div>
                                         <CodeEditor
