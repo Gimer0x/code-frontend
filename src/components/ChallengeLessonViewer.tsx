@@ -228,35 +228,169 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
 
   // Challenge system functions
   const handleCompile = async () => {
+    console.log('=== HANDLE COMPILE CALLED ===')
     setIsLoading(true)
     setIsProcessing(true)
     try {
-      const response = await fetch('/api/challenge/compile', {
+      // Call backend compilation endpoint directly
+      const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+      
+      // Get admin JWT token for backend call
+      let adminToken = null
+      try {
+        const loginResponse = await fetch(`${backendUrl}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: 'admin@dappdojo.com',
+            password: 'admin123'
+          })
+        })
+        
+        if (loginResponse.ok) {
+          const loginData = await loginResponse.json()
+          adminToken = loginData.accessToken
+          console.log('Got admin token for compilation')
+        } else {
+          console.error('Failed to get admin token:', await loginResponse.text())
+        }
+      } catch (loginError) {
+        console.error('Admin login error:', loginError)
+      }
+      
+      if (!adminToken) {
+        throw new Error('Unable to get admin authentication token for compilation')
+      }
+
+      // Extract contract name from code
+      const contractNameMatch = code.match(/contract\s+(\w+)/)
+      const contractName = contractNameMatch ? contractNameMatch[1] : 'CompileContract'
+
+      const response = await fetch(`${backendUrl}/api/compile`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
         body: JSON.stringify({
-          code,
           courseId,
-          lessonId: lesson.id
+          code: code.trim(),
+          contractName
         })
       })
       
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Compilation failed: ${response.status}`)
+      }
+      
       const result = await response.json()
+      
+      // Debug: Log the result structure
+      console.log('=== COMPILATION DEBUG ===')
+      console.log('Backend compilation result:', result)
+      console.log('Warnings in result:', result.result?.warnings)
+      console.log('Errors in result:', result.result?.errors)
+      console.log('Result keys:', Object.keys(result))
+      if (result.result) {
+        console.log('Result.result keys:', Object.keys(result.result))
+        console.log('Raw errors array:', result.result.errors)
+        console.log('Raw warnings array:', result.result.warnings)
+      }
+      console.log('=== END DEBUG ===')
+      
+      // Process the backend response format
+      const backendResult = result.result || {}
+      const warnings = backendResult.warnings || []
+      const errors = backendResult.errors || []
+      
+      console.log('Processing errors:', errors.length, 'warnings:', warnings.length)
+      
+      // Process warnings to ensure consistent structure
+      const processedWarnings = warnings.map((warning: any) => ({
+        ...warning,
+        type: warning.type || 'compilation_warning',
+        severity: warning.severity || 'warning',
+        sourceLocation: warning.sourceLocation || (warning.line ? {
+          file: warning.file || 'Unknown',
+          start: {
+            line: warning.line || 0,
+            column: warning.column || 0
+          }
+        } : undefined)
+      }))
+
+      // Process errors with detailed information and deduplication
+      const processedErrors = errors.map((error: any) => ({
+        ...error,
+        type: error.type || 'compilation_error',
+        severity: error.severity || 'error',
+        message: error.message || 'Unknown compilation error',
+        line: error.line || 0,
+        column: error.column || 0,
+        file: error.file || 'Unknown',
+        code: error.code || 'UNKNOWN',
+        sourceLocation: error.sourceLocation || (error.line ? {
+          file: error.file || 'Unknown',
+          start: {
+            line: error.line || 0,
+            column: error.column || 0
+          }
+        } : undefined),
+        suggestions: getErrorSuggestions(error)
+      }))
+
+      // Deduplicate errors based on line, column, and message
+      const uniqueErrors = processedErrors.filter((error, index, self) => 
+        index === self.findIndex(e => 
+          e.line === error.line && 
+          e.column === error.column && 
+          e.message === error.message &&
+          e.file === error.file
+        )
+      )
+
+      console.log('After deduplication - errors:', uniqueErrors.length, 'warnings:', processedWarnings.length)
+
+      // Create the result in the expected format
+      const compilationResult = {
+        success: result.success,
+        message: result.success ? 'Compilation completed' : `Compilation failed with ${uniqueErrors.length} error(s)`,
+        output: backendResult.output,
+        errors: uniqueErrors,
+        warnings: processedWarnings,
+        contractName: result.contractName || contractName,
+        compilationTime: backendResult.compilationTime,
+        artifacts: backendResult.artifacts || [],
+        contracts: backendResult.contracts || [],
+        sessionId: null,
+        timestamp: result.timestamp || new Date().toISOString()
+      }
       
       // Add a small delay to prevent jarring transitions
       setTimeout(() => {
         setOutputContent({
           type: 'compile',
-          content: result,
+          content: compilationResult,
           timestamp: new Date()
         })
         setIsProcessing(false)
       }, 100)
     } catch (error) {
+      console.error('Compilation error:', error)
       setTimeout(() => {
         setOutputContent({
           type: 'error',
-          content: { message: 'Failed to compile code' },
+          content: { 
+            message: error instanceof Error ? error.message : 'Failed to compile code',
+            success: false,
+            errors: [{
+              severity: 'error',
+              message: error instanceof Error ? error.message : 'Failed to compile code',
+              type: 'CompilationError'
+            }],
+            warnings: []
+          },
           timestamp: new Date()
         })
         setIsProcessing(false)
@@ -264,6 +398,75 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Helper function to provide error suggestions
+  const getErrorSuggestions = (error: any): string[] => {
+    const suggestions: string[] = []
+    const message = error.message?.toLowerCase() || ''
+    const code = error.code || ''
+    
+    // Syntax errors
+    if (message.includes('expected') && message.includes('but got')) {
+      suggestions.push('Check the syntax at the specified location')
+      suggestions.push('Ensure proper punctuation (semicolons, commas, brackets)')
+    }
+    
+    if (message.includes('semicolon')) {
+      suggestions.push('Add semicolon (;) at the end of the statement')
+      suggestions.push('Check line ' + (error.line || 'unknown') + ' for missing semicolon')
+    }
+    
+    if (message.includes('bracket') || message.includes('brace')) {
+      suggestions.push('Check for matching opening and closing brackets/braces')
+      suggestions.push('Ensure all { } and ( ) are properly paired')
+    }
+    
+    // Type errors
+    if (message.includes('type') && message.includes('not')) {
+      suggestions.push('Check variable types and ensure they match')
+      suggestions.push('Verify function parameter and return types')
+    }
+    
+    // Name errors
+    if (message.includes('not found') || message.includes('undefined')) {
+      suggestions.push('Check spelling of variable/function names')
+      suggestions.push('Ensure all variables are declared before use')
+    }
+    
+    // Visibility errors
+    if (message.includes('visibility')) {
+      suggestions.push('Add visibility specifier: public, private, internal, or external')
+    }
+    
+    // Event errors
+    if (message.includes('event')) {
+      suggestions.push('Check event name spelling')
+      suggestions.push('Ensure event is declared before use')
+    }
+    
+    // Function errors
+    if (message.includes('function')) {
+      suggestions.push('Check function declaration syntax')
+      suggestions.push('Ensure proper parameter and return type declarations')
+    }
+    
+    // Specific error codes
+    if (code === '2314') {
+      suggestions.push('Missing semicolon - add ; at the end of the statement')
+    }
+    
+    if (code === '7920') {
+      suggestions.push('Variable declared but never used - remove or use the variable')
+    }
+    
+    // Generic suggestions if no specific match
+    if (suggestions.length === 0) {
+      suggestions.push('Check the syntax around line ' + (error.line || 'unknown'))
+      suggestions.push('Review Solidity documentation for proper syntax')
+    }
+    
+    return suggestions
   }
 
   const handleSave = async () => {
@@ -1206,19 +1409,25 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                             </div>
                           )}
                           
-                          {outputContent.content.warnings?.length > 0 && (
+                          {/* Debug: Show raw result structure */}
+                          <div className="mb-4 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+                            <div className="font-bold">Debug - Raw Result:</div>
+                            <pre className="whitespace-pre-wrap">{JSON.stringify(outputContent.content, null, 2)}</pre>
+                          </div>
+                          
+                          {(outputContent.content.warnings?.length > 0 || outputContent.content.result?.warnings?.length > 0) && (
                             <div className="space-y-2">
                               <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
-                                ⚠️ Warnings ({outputContent.content.warnings.length})
+                                ⚠️ Warnings ({(outputContent.content.warnings || outputContent.content.result?.warnings || []).length})
                               </div>
-                              {outputContent.content.warnings.map((warning: any, index: number) => (
+                              {(outputContent.content.warnings || outputContent.content.result?.warnings || []).map((warning: any, index: number) => (
                                 <div key={index} className="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 p-3 rounded-lg">
                                   <div className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
                                     Warning {index + 1}: {warning.message}
                                   </div>
-                                  {warning.line > 0 && (
+                                  {(warning.line > 0 || warning.sourceLocation?.start?.line) && (
                                     <div className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                                      Line {warning.line}, Column {warning.column}
+                                      Line {warning.line || warning.sourceLocation?.start?.line}, Column {warning.column || warning.sourceLocation?.start?.column}
                                     </div>
                                   )}
                                   {warning.suggestions && warning.suggestions.length > 0 && (

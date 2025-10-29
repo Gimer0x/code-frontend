@@ -6,11 +6,16 @@ interface CompilationError {
   severity: 'error' | 'warning' | 'info'
   message: string
   type: string
+  line?: number
+  file?: string
+  column?: number
+  code?: string
   sourceLocation?: {
     file: string
     start: { line: number; column: number }
     end?: { line: number; column: number }
   }
+  suggestions?: string[]
 }
 
 interface CompilationResult {
@@ -104,14 +109,46 @@ export function CompilationResultDisplay({ result, className }: { result: Compil
       {/* Errors */}
       {result.errors.length > 0 && (
         <div className="mb-3">
-          <div className="font-medium mb-2 text-red-700 dark:text-red-300">❌ Errors:</div>
+          <div className="font-medium mb-2 text-red-700 dark:text-red-300">
+            ❌ Errors ({result.errors.length}):
+          </div>
           {result.errors.map((error, index) => (
-            <div key={index} className="ml-4 mb-2 p-2 bg-red-100 dark:bg-red-900/30 rounded">
-              <div className="font-medium text-red-800 dark:text-red-200">{error.type}:</div>
-              <div className="text-sm">{error.message}</div>
-              {error.sourceLocation && (
-                <div className="text-xs text-red-600 dark:text-red-400 mt-1">
-                  📍 {error.sourceLocation.file}:{error.sourceLocation.start.line}:{error.sourceLocation.start.column}
+            <div key={index} className="ml-4 mb-3 p-3 bg-red-100 dark:bg-red-900/30 rounded border border-red-200 dark:border-red-700">
+              <div className="flex items-start justify-between mb-2">
+                <div className="font-medium text-red-800 dark:text-red-200">
+                  {error.type || 'Compilation Error'}
+                  {error.code && (
+                    <span className="ml-2 text-xs bg-red-200 dark:bg-red-800 px-2 py-1 rounded">
+                      Code: {error.code}
+                    </span>
+                  )}
+                </div>
+                {((error.line && error.line > 0) || error.sourceLocation?.start?.line) && (
+                  <div className="text-xs text-red-600 dark:text-red-400 bg-red-200 dark:bg-red-800 px-2 py-1 rounded">
+                    Line {error.line || error.sourceLocation?.start?.line}
+                    {error.column && `, Col ${error.column}`}
+                  </div>
+                )}
+              </div>
+              <div className="text-sm text-red-700 dark:text-red-300 mb-2">
+                {error.message}
+              </div>
+              {(error.sourceLocation || (error.line && error.file)) && (
+                <div className="text-xs text-red-600 dark:text-red-400 mb-2">
+                  📍 {error.sourceLocation?.file || error.file}:{error.sourceLocation?.start?.line || error.line}:{error.sourceLocation?.start?.column || error.column}
+                </div>
+              )}
+              {error.suggestions && error.suggestions.length > 0 && (
+                <div className="mt-2">
+                  <div className="text-xs text-red-700 dark:text-red-300 font-medium mb-1">💡 Suggestions:</div>
+                  <ul className="text-xs text-red-600 dark:text-red-400 space-y-1">
+                    {error.suggestions.map((suggestion: string, suggestionIndex: number) => (
+                      <li key={suggestionIndex} className="flex items-start">
+                        <span className="mr-2">•</span>
+                        <span>{suggestion}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>
@@ -127,9 +164,9 @@ export function CompilationResultDisplay({ result, className }: { result: Compil
             <div key={index} className="ml-4 mb-2 p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded">
               <div className="font-medium text-yellow-800 dark:text-yellow-200">{warning.type}:</div>
               <div className="text-sm">{warning.message}</div>
-              {warning.sourceLocation && (
+              {(warning.sourceLocation || (warning.line && warning.file)) && (
                 <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                  📍 {warning.sourceLocation.file}:{warning.sourceLocation.start.line}:{warning.sourceLocation.start.column}
+                  📍 {warning.sourceLocation?.file || warning.file}:{warning.sourceLocation?.start?.line || warning.line}:{warning.sourceLocation?.start?.column || warning.column}
                 </div>
               )}
             </div>
@@ -201,47 +238,132 @@ export default function CompileButton({
     onCompilationResult(null)
 
     try {
+      // Call backend compilation endpoint directly
+      const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
       
+      // Get admin JWT token for backend call
+      let adminToken = null
+      try {
+        const loginResponse = await fetch(`${backendUrl}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: 'admin@dappdojo.com',
+            password: 'admin123'
+          })
+        })
+        
+        if (loginResponse.ok) {
+          const loginData = await loginResponse.json()
+          adminToken = loginData.accessToken
+          console.log('Got admin token for compilation')
+        } else {
+          console.error('Failed to get admin token:', await loginResponse.text())
+        }
+      } catch (loginError) {
+        console.error('Admin login error:', loginError)
+      }
+      
+      if (!adminToken) {
+        throw new Error('Unable to get admin authentication token for compilation')
+      }
+
+      // Extract contract name from code
+      const contractNameMatch = code.match(/contract\s+(\w+)/)
+      const contractName = contractNameMatch ? contractNameMatch[1] : 'CompileContract'
+
       // Add timeout to prevent hanging
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
       
-      // Use lightweight admin endpoints when skipSession is true
-      const endpoint = skipSession ? '/api/admin/compile' : '/api/challenge/compile'
-      const body = skipSession 
-        ? { code, contractName: 'TempContract' }
-        : { code, courseId, lessonId: 'default' }
-      
-      const response = await fetch(endpoint, {
+      const response = await fetch(`${backendUrl}/api/compile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          courseId: courseId || 'default-course',
+          code: code.trim(),
+          contractName
+        }),
         signal: controller.signal
       })
       
       clearTimeout(timeoutId)
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       const apiResult = await response.json()
 
+      // Process the backend response format
+      const backendResult = apiResult.result || {}
+      const warnings = backendResult.warnings || []
+      const errors = backendResult.errors || []
+      
+      console.log('Processing errors:', errors.length, 'warnings:', warnings.length)
+      
+      // Process warnings to ensure consistent structure
+      const processedWarnings = warnings.map((warning: any) => ({
+        ...warning,
+        type: warning.type || 'compilation_warning',
+        severity: warning.severity || 'warning',
+        sourceLocation: warning.sourceLocation || (warning.line ? {
+          file: warning.file || 'Unknown',
+          start: {
+            line: warning.line || 0,
+            column: warning.column || 0
+          }
+        } : undefined)
+      }))
+
+      // Process errors with detailed information and deduplication
+      const processedErrors = errors.map((error: any) => ({
+        ...error,
+        type: error.type || 'compilation_error',
+        severity: error.severity || 'error',
+        message: error.message || 'Unknown compilation error',
+        line: error.line || 0,
+        column: error.column || 0,
+        file: error.file || 'Unknown',
+        code: error.code || 'UNKNOWN',
+        sourceLocation: error.sourceLocation || (error.line ? {
+          file: error.file || 'Unknown',
+          start: {
+            line: error.line || 0,
+            column: error.column || 0
+          }
+        } : undefined),
+        suggestions: getErrorSuggestions(error)
+      }))
+
+      // Deduplicate errors based on line, column, and message
+      const uniqueErrors = processedErrors.filter((error: CompilationError, index: number, self: CompilationError[]) => 
+        index === self.findIndex((e: CompilationError) => 
+          e.line === error.line && 
+          e.column === error.column && 
+          e.message === error.message &&
+          e.file === error.file
+        )
+      )
+
+      console.log('After deduplication - errors:', uniqueErrors.length, 'warnings:', processedWarnings.length)
+
       // Transform the API response to match the expected CompilationResult format
       const result: CompilationResult = {
         success: apiResult.success,
-        message: apiResult.message,
-        compilationTime: apiResult.compilationTime,
-        artifacts: apiResult.artifacts,
-        contracts: apiResult.contracts,
-        errors: apiResult.errors || [],
-        warnings: apiResult.warnings || [],
-        sessionId: apiResult.sessionId,
-        timestamp: apiResult.timestamp
+        message: apiResult.success ? 'Compilation completed' : `Compilation failed with ${uniqueErrors.length} error(s)`,
+        compilationTime: backendResult.compilationTime,
+        artifacts: backendResult.artifacts || [],
+        contracts: backendResult.contracts || [],
+        errors: uniqueErrors,
+        warnings: processedWarnings,
+        sessionId: undefined, // Not used in backend response
+        timestamp: apiResult.timestamp || new Date().toISOString()
       }
-
 
       setLastResult(result)
       onCompilationResult(result)
@@ -303,6 +425,75 @@ export default function CompileButton({
     if (lastResult?.success) return 'bg-green-500 hover:bg-green-600'
     if (lastResult && !lastResult.success) return 'bg-red-500 hover:bg-red-600'
     return 'bg-blue-600 hover:bg-blue-700'
+  }
+
+  // Helper function to provide error suggestions
+  const getErrorSuggestions = (error: any): string[] => {
+    const suggestions: string[] = []
+    const message = error.message?.toLowerCase() || ''
+    const code = error.code || ''
+    
+    // Syntax errors
+    if (message.includes('expected') && message.includes('but got')) {
+      suggestions.push('Check the syntax at the specified location')
+      suggestions.push('Ensure proper punctuation (semicolons, commas, brackets)')
+    }
+    
+    if (message.includes('semicolon')) {
+      suggestions.push('Add semicolon (;) at the end of the statement')
+      suggestions.push('Check line ' + (error.line || 'unknown') + ' for missing semicolon')
+    }
+    
+    if (message.includes('bracket') || message.includes('brace')) {
+      suggestions.push('Check for matching opening and closing brackets/braces')
+      suggestions.push('Ensure all { } and ( ) are properly paired')
+    }
+    
+    // Type errors
+    if (message.includes('type') && message.includes('not')) {
+      suggestions.push('Check variable types and ensure they match')
+      suggestions.push('Verify function parameter and return types')
+    }
+    
+    // Name errors
+    if (message.includes('not found') || message.includes('undefined')) {
+      suggestions.push('Check spelling of variable/function names')
+      suggestions.push('Ensure all variables are declared before use')
+    }
+    
+    // Visibility errors
+    if (message.includes('visibility')) {
+      suggestions.push('Add visibility specifier: public, private, internal, or external')
+    }
+    
+    // Event errors
+    if (message.includes('event')) {
+      suggestions.push('Check event name spelling')
+      suggestions.push('Ensure event is declared before use')
+    }
+    
+    // Function errors
+    if (message.includes('function')) {
+      suggestions.push('Check function declaration syntax')
+      suggestions.push('Ensure proper parameter and return type declarations')
+    }
+    
+    // Specific error codes
+    if (code === '2314') {
+      suggestions.push('Missing semicolon - add ; at the end of the statement')
+    }
+    
+    if (code === '7920') {
+      suggestions.push('Variable declared but never used - remove or use the variable')
+    }
+    
+    // Generic suggestions if no specific match
+    if (suggestions.length === 0) {
+      suggestions.push('Check the syntax around line ' + (error.line || 'unknown'))
+      suggestions.push('Review Solidity documentation for proper syntax')
+    }
+    
+    return suggestions
   }
 
   return (

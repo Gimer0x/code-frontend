@@ -4,6 +4,7 @@ import React from 'react'
 import { notFound } from 'next/navigation'
 import { useLesson } from '@/hooks/useLesson'
 import LessonViewer from '@/components/LessonViewer'
+import ChallengeLessonViewer from '@/components/ChallengeLessonViewer'
 
 export default function LessonPage({ params }: { params: Promise<{ id: string; moduleId: string; lessonId: string }> }) {
   const [lessonId, setLessonId] = React.useState<string | null>(null)
@@ -61,5 +62,10 @@ export default function LessonPage({ params }: { params: Promise<{ id: string; m
     }
   }
 
+  // Use ChallengeLessonViewer for challenge lessons, LessonViewer for others
+  if (lesson.type === 'challenge') {
+    return <ChallengeLessonViewer lesson={lessonData} courseId={courseId} />
+  }
+  
   return <LessonViewer lesson={lessonData} courseId={courseId} />
 }
