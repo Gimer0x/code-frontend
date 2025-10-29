@@ -289,22 +289,16 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       // Debug: Log the result structure
       console.log('=== COMPILATION DEBUG ===')
       console.log('Backend compilation result:', result)
-      console.log('Warnings in result:', result.result?.warnings)
-      console.log('Errors in result:', result.result?.errors)
-      console.log('Result keys:', Object.keys(result))
-      if (result.result) {
-        console.log('Result.result keys:', Object.keys(result.result))
-        console.log('Raw errors array:', result.result.errors)
-        console.log('Raw warnings array:', result.result.warnings)
-      }
+      console.log('Top-level success:', result.success)
+      console.log('Compilation success:', result.result?.success)
+      console.log('Errors count:', result.result?.errors?.length || 0)
+      console.log('Warnings count:', result.result?.warnings?.length || 0)
       console.log('=== END DEBUG ===')
       
-      // Process the backend response format
+      // Process the backend response format (backend now provides clean, deduplicated results)
       const backendResult = result.result || {}
       const warnings = backendResult.warnings || []
       const errors = backendResult.errors || []
-      
-      console.log('Processing errors:', errors.length, 'warnings:', warnings.length)
       
       // Process warnings to ensure consistent structure
       const processedWarnings = warnings.map((warning: any) => ({
@@ -320,7 +314,7 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
         } : undefined)
       }))
 
-      // Process errors with detailed information and deduplication
+      // Process errors with detailed information (backend already deduplicates)
       const processedErrors = errors.map((error: any) => ({
         ...error,
         type: error.type || 'compilation_error',
@@ -340,24 +334,18 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
         suggestions: getErrorSuggestions(error)
       }))
 
-      // Deduplicate errors based on line, column, and message
-      const uniqueErrors = processedErrors.filter((error, index, self) => 
-        index === self.findIndex(e => 
-          e.line === error.line && 
-          e.column === error.column && 
-          e.message === error.message &&
-          e.file === error.file
-        )
-      )
-
-      console.log('After deduplication - errors:', uniqueErrors.length, 'warnings:', processedWarnings.length)
+      console.log('Processed - errors:', processedErrors.length, 'warnings:', processedWarnings.length)
 
       // Create the result in the expected format
       const compilationResult = {
-        success: result.success,
-        message: result.success ? 'Compilation completed' : `Compilation failed with ${uniqueErrors.length} error(s)`,
+        success: result.success && backendResult.success,
+        message: backendResult.success 
+          ? (processedWarnings.length > 0 
+              ? `Compilation completed with ${processedWarnings.length} warning(s)` 
+              : 'Compilation completed')
+          : `Compilation failed with ${processedErrors.length} error(s)`,
         output: backendResult.output,
-        errors: uniqueErrors,
+        errors: processedErrors,
         warnings: processedWarnings,
         contractName: result.contractName || contractName,
         compilationTime: backendResult.compilationTime,

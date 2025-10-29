@@ -299,7 +299,7 @@ export default function CompileButton({
 
       const apiResult = await response.json()
 
-      // Process the backend response format
+      // Process the backend response format (backend now provides clean, deduplicated results)
       const backendResult = apiResult.result || {}
       const warnings = backendResult.warnings || []
       const errors = backendResult.errors || []
@@ -320,7 +320,7 @@ export default function CompileButton({
         } : undefined)
       }))
 
-      // Process errors with detailed information and deduplication
+      // Process errors with detailed information (backend already deduplicates)
       const processedErrors = errors.map((error: any) => ({
         ...error,
         type: error.type || 'compilation_error',
@@ -340,26 +340,20 @@ export default function CompileButton({
         suggestions: getErrorSuggestions(error)
       }))
 
-      // Deduplicate errors based on line, column, and message
-      const uniqueErrors = processedErrors.filter((error: CompilationError, index: number, self: CompilationError[]) => 
-        index === self.findIndex((e: CompilationError) => 
-          e.line === error.line && 
-          e.column === error.column && 
-          e.message === error.message &&
-          e.file === error.file
-        )
-      )
-
-      console.log('After deduplication - errors:', uniqueErrors.length, 'warnings:', processedWarnings.length)
+      console.log('Processed - errors:', processedErrors.length, 'warnings:', processedWarnings.length)
 
       // Transform the API response to match the expected CompilationResult format
       const result: CompilationResult = {
-        success: apiResult.success,
-        message: apiResult.success ? 'Compilation completed' : `Compilation failed with ${uniqueErrors.length} error(s)`,
+        success: apiResult.success && backendResult.success,
+        message: backendResult.success 
+          ? (processedWarnings.length > 0 
+              ? `Compilation completed with ${processedWarnings.length} warning(s)` 
+              : 'Compilation completed')
+          : `Compilation failed with ${processedErrors.length} error(s)`,
         compilationTime: backendResult.compilationTime,
         artifacts: backendResult.artifacts || [],
         contracts: backendResult.contracts || [],
-        errors: uniqueErrors,
+        errors: processedErrors,
         warnings: processedWarnings,
         sessionId: undefined, // Not used in backend response
         timestamp: apiResult.timestamp || new Date().toISOString()
