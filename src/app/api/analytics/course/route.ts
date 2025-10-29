@@ -60,7 +60,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get course analytics error:', error)
       return createErrorResponse('Failed to get course analytics', 500)
     }
   })(request, { requireAuth: true })

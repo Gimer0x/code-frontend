@@ -43,7 +43,6 @@ export async function GET(
       })
 
     } catch (error) {
-      console.error('Get template error:', error)
       return createErrorResponse('Failed to get template', 500)
     }
   })

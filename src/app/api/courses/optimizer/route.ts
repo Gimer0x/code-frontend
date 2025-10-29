@@ -76,7 +76,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get optimizer configuration error:', error)
       return createErrorResponse('Failed to get optimizer configuration', 500)
     }
   })
@@ -138,7 +137,6 @@ export async function PUT(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Update optimizer configuration error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -214,7 +212,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Apply optimizer preset error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {

@@ -77,7 +77,6 @@ export class FoundryConfigService {
         remappings: courseProject.remappings as Record<string, string>
       }
     } catch (error) {
-      console.error('Error getting course config:', error)
       return null
     }
   }
@@ -107,7 +106,6 @@ export class FoundryConfigService {
 
       return true
     } catch (error) {
-      console.error('Error updating course config:', error)
       return false
     }
   }
@@ -421,7 +419,6 @@ export class FoundryConfigService {
 
       return result.success
     } catch (error) {
-      console.error('Error installing library:', error)
       return false
     }
   }
@@ -445,7 +442,6 @@ export class FoundryConfigService {
         libraries: updatedLibraries
       })
     } catch (error) {
-      console.error('Error removing library:', error)
       return false
     }
   }
@@ -465,7 +461,6 @@ export class FoundryConfigService {
         )
       }
     } catch (error) {
-      console.error('Error getting library status:', error)
       return { installed: [], available: this.getAvailableLibraries() }
     }
   }

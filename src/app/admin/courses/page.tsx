@@ -60,10 +60,8 @@ export default function AdminCourses() {
       setError(null)
       const response = await fetch('/api/courses')
       const data = await response.json()
-      console.log('Courses API Response:', data) // Debug log
       
       if (data.success) {
-        console.log('Courses data:', data.courses) // Debug log
         setCourses(data.courses || [])
       } else {
         setError(data.error || 'Failed to fetch courses')

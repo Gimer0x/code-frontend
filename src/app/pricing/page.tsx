@@ -97,7 +97,6 @@ export default function PricingPage() {
         window.location.href = url
       }
     } catch (error) {
-      console.error('Error creating checkout session:', error)
       alert('Something went wrong. Please try again.')
     } finally {
       setLoading(null)

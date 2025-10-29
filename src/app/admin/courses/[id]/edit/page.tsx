@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { authService } from '@/lib/auth-service'
 import AdminRoute from '@/components/AdminRoute'
 import Link from 'next/link'
 import ImageUpload from '@/components/ImageUpload'
@@ -378,20 +379,44 @@ export default function EditCourse() {
 
     setIsSavingModule(moduleId)
     try {
+      const authHeader = authService.getAuthHeader()
+      
+      // Convert modules to Prisma nested update format
+      const modulesUpdate = {
+        deleteMany: {},
+        create: modules.map((module, moduleIndex) => ({
+          title: module.title,
+          description: module.description || '',
+          order: moduleIndex + 1,
+          lessons: {
+            create: module.lessons.map((lesson, lessonIndex) => ({
+              type: lesson.type.toUpperCase() as 'INTRO' | 'QUIZ' | 'CHALLENGE',
+              title: lesson.title,
+              contentMarkdown: lesson.contentMarkdown || '',
+              initialCode: lesson.initialCode || '',
+              solutionCode: lesson.solutionCode || '',
+              tests: lesson.tests || '',
+              order: lessonIndex + 1,
+            }))
+          }
+        }))
+      }
+      
       const response = await fetch(`/api/courses/${courseId}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(authHeader && { 'Authorization': authHeader })
         },
         body: JSON.stringify({
           title: courseTitle,
           language: courseLanguage,
           goals: courseGoals,
-          level: courseLevel,
-          access: courseAccess,
-          status: courseStatus,
+          level: courseLevel.toUpperCase(),
+          access: courseAccess.toUpperCase(),
+          status: courseStatus.toUpperCase(),
           thumbnail: courseThumbnail,
-          modules
+          modules: modulesUpdate
         }),
       })
 
@@ -406,7 +431,6 @@ export default function EditCourse() {
         setMessageType('error')
       }
     } catch (error) {
-      console.error('Error saving module:', error)
       setMessage('Error saving module')
       setMessageType('error')
     } finally {
@@ -418,20 +442,44 @@ export default function EditCourse() {
   const saveLesson = async (moduleId: string, lessonId: string) => {
     setIsSavingLesson(lessonId)
     try {
+      const authHeader = authService.getAuthHeader()
+      
+      // Convert modules to Prisma nested update format
+      const modulesUpdate = {
+        deleteMany: {},
+        create: modules.map((module, moduleIndex) => ({
+          title: module.title,
+          description: module.description || '',
+          order: moduleIndex + 1,
+          lessons: {
+            create: module.lessons.map((lesson, lessonIndex) => ({
+              type: lesson.type.toUpperCase() as 'INTRO' | 'QUIZ' | 'CHALLENGE',
+              title: lesson.title,
+              contentMarkdown: lesson.contentMarkdown || '',
+              initialCode: lesson.initialCode || '',
+              solutionCode: lesson.solutionCode || '',
+              tests: lesson.tests || '',
+              order: lessonIndex + 1,
+            }))
+          }
+        }))
+      }
+      
       const response = await fetch(`/api/courses/${courseId}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(authHeader && { 'Authorization': authHeader })
         },
         body: JSON.stringify({
           title: courseTitle,
           language: courseLanguage,
           goals: courseGoals,
-          level: courseLevel,
-          access: courseAccess,
-          status: courseStatus,
+          level: courseLevel.toUpperCase(),
+          access: courseAccess.toUpperCase(),
+          status: courseStatus.toUpperCase(),
           thumbnail: courseThumbnail,
-          modules
+          modules: modulesUpdate
         }),
       })
 
@@ -442,11 +490,10 @@ export default function EditCourse() {
         setTimeout(() => setMessage(''), 1000)
       } else {
         const data = await response.json()
-        setMessage(data.error || 'Failed to save lesson')
+        setMessage(data.error || `Failed to save lesson (${response.status})`)
         setMessageType('error')
       }
     } catch (error) {
-      console.error('Error saving lesson:', error)
       setMessage('Error saving lesson')
       setMessageType('error')
     } finally {
@@ -457,6 +504,7 @@ export default function EditCourse() {
   const router = useRouter()
   const params = useParams()
   const courseId = params.id as string
+  
 
   useEffect(() => {
     // Check if user is authenticated
@@ -508,7 +556,6 @@ export default function EditCourse() {
         setMessageType('error')
       }
     } catch (err) {
-      console.error('Error fetching course:', err)
       setMessage('Error fetching course')
       setMessageType('error')
     } finally {
@@ -798,23 +845,45 @@ export default function EditCourse() {
     setMessage('')
 
     try {
+      // Convert modules to Prisma nested update format
+      const modulesUpdate = {
+        deleteMany: {},
+        create: modules.map((module, moduleIndex) => ({
+          title: module.title,
+          description: module.description || '',
+          order: moduleIndex + 1,
+          lessons: {
+            create: module.lessons.map((lesson, lessonIndex) => ({
+              type: lesson.type.toUpperCase() as 'INTRO' | 'QUIZ' | 'CHALLENGE',
+              title: lesson.title,
+              contentMarkdown: lesson.contentMarkdown || '',
+              initialCode: lesson.initialCode || '',
+              solutionCode: lesson.solutionCode || '',
+              tests: lesson.tests || '',
+              order: lessonIndex + 1,
+            }))
+          }
+        }))
+      }
+      
       // Debug: Log the data being sent
       const requestData = {
         title: courseTitle,
         language: courseLanguage,
         goals: courseGoals,
-        level: courseLevel,
-        access: courseAccess,
-        status: courseStatus,
+        level: courseLevel.toUpperCase(),
+        access: courseAccess.toUpperCase(),
+        status: courseStatus.toUpperCase(),
         thumbnail: courseThumbnail,
-        modules
+        modules: modulesUpdate
       }
-      console.log('Sending data:', JSON.stringify(requestData, null, 2))
       
+      const authHeader = authService.getAuthHeader()
       const response = await fetch(`/api/courses/${courseId}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(authHeader && { 'Authorization': authHeader })
         },
         body: JSON.stringify(requestData),
       })
@@ -832,7 +901,6 @@ export default function EditCourse() {
         setMessageType('error')
       }
     } catch (error) {
-      console.error('Error updating course:', error)
       setMessage('Error updating course')
       setMessageType('error')
     } finally {

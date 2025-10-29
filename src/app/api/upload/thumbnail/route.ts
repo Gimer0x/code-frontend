@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
     try {
       data = await request.formData()
     } catch (error) {
-      console.error('FormData parsing failed:', error)
       return NextResponse.json({ 
         error: 'Failed to parse form data. Please try again.' 
       }, { status: 400 })
@@ -54,7 +53,6 @@ export async function POST(request: NextRequest) {
       const bytes = await file.arrayBuffer()
       buffer = Buffer.from(bytes)
     } catch (error) {
-      console.error('File buffer conversion failed:', error)
       return NextResponse.json({ 
         error: 'Failed to process file. Please try again.' 
       }, { status: 400 })
@@ -85,7 +83,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Thumbnail upload error:', error)
     return NextResponse.json({
       error: 'Failed to upload thumbnail'
     }, { status: 500 })

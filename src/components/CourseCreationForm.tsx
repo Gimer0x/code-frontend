@@ -162,7 +162,6 @@ export default function CourseCreationForm({
       })
 
       const data = await response.json()
-      console.log('Course creation response:', data)
 
       if (data.success) {
         if (onSuccess) {
@@ -171,11 +170,9 @@ export default function CourseCreationForm({
           router.push(`/admin/courses/${data.course.id}/edit`)
         }
       } else {
-        console.error('Course creation failed:', data)
         setError(data.error || data.message || 'Failed to create course')
       }
     } catch (err) {
-      console.error('Course creation error:', err)
       setError(`Failed to create course: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setIsSubmitting(false)
@@ -321,13 +318,11 @@ export default function CourseCreationForm({
                         setFormData(prev => ({ ...prev, thumbnail: result.url }))
                       } else {
                         const error = await response.json()
-                        console.error('Upload failed:', error)
                         // Fallback to blob URL for preview
                         const url = URL.createObjectURL(file)
                         setFormData(prev => ({ ...prev, thumbnail: url }))
                       }
                     } catch (error) {
-                      console.error('Upload error:', error)
                       // Fallback to blob URL for preview
                       const url = URL.createObjectURL(file)
                       setFormData(prev => ({ ...prev, thumbnail: url }))

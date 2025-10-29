@@ -130,12 +130,9 @@ export default function CoursesPage() {
       if (response.ok) {
         // Refresh subscription status
         await fetchUserSubscription()
-        console.log('Payment success handled')
       } else {
-        console.error('Failed to handle payment success')
       }
     } catch (error) {
-      console.error('Error handling payment success:', error)
     }
   }
 
@@ -147,17 +144,13 @@ export default function CoursesPage() {
         setUserSubscription(data)
       }
     } catch (error) {
-      console.error('Error fetching subscription:', error)
     }
   }
 
   const canAccessLesson = (courseId: string, moduleId: string, lessonId: string) => {
     if (!userSubscription) {
-      console.log('No user subscription found')
       return false
     }
-    
-    console.log('User subscription:', userSubscription)
     
     // Free users can only access first module of any course
     if (userSubscription.subscriptionPlan === 'FREE') {
@@ -171,8 +164,6 @@ export default function CoursesPage() {
     // Paid users have unlimited access (ACTIVE status only)
     const hasPaidAccess = ['MONTHLY', 'YEARLY'].includes(userSubscription.subscriptionPlan)
     const isActiveStatus = userSubscription.subscriptionStatus === 'ACTIVE'
-    
-    console.log('Access check:', { hasPaidAccess, isActiveStatus, plan: userSubscription.subscriptionPlan, status: userSubscription.subscriptionStatus })
     
     return hasPaidAccess && isActiveStatus
   }

@@ -315,7 +315,6 @@ evm_version = "london"
     }
     
   } catch (error: any) {
-    console.error('Admin test error:', error)
     return NextResponse.json({
       success: false,
       output: '',

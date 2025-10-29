@@ -56,7 +56,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(enhancedStatus)
 
   } catch (error) {
-    console.error('Status check error:', error)
     return NextResponse.json({
       service: 'dappdojo-api',
       status: 'error',
@@ -156,7 +155,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(metrics)
 
   } catch (error) {
-    console.error('Metrics error:', error)
     return NextResponse.json({
       error: 'Failed to get metrics'
     }, { status: 500 })

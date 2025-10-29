@@ -125,7 +125,6 @@ export async function authenticateRequest(
     return { success: true, context }
 
   } catch (error) {
-    console.error('Authentication error:', error)
     return {
       success: false,
       response: NextResponse.json(
@@ -179,7 +178,6 @@ export async function checkCourseAccess(
     return false
 
   } catch (error) {
-    console.error('Course access check error:', error)
     return false
   }
 }
@@ -207,7 +205,6 @@ export async function checkCourseOwnership(
     return course?.creatorId === userId
 
   } catch (error) {
-    console.error('Course ownership check error:', error)
     return false
   }
 }

@@ -154,7 +154,6 @@ export default function LessonViewer({ lesson: initialLesson, courseId }: Lesson
         progress: { completed: true }
       } : null)
     } catch (err) {
-      console.error('Error marking lesson as completed:', err)
     } finally {
       setIsCompleting(false)
     }
@@ -427,7 +426,6 @@ export default function LessonViewer({ lesson: initialLesson, courseId }: Lesson
                        const codeText = typeof children === 'string' ? children : String(children)
                        await navigator.clipboard.writeText(codeText)
                      } catch (err) {
-                       console.error('Failed to copy code:', err)
                      }
                    }
                    

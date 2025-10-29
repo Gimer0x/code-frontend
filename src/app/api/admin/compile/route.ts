@@ -117,7 +117,6 @@ evm_version = "london"
     }
     
   } catch (error: any) {
-    console.error('Admin compilation error:', error)
     return NextResponse.json({
       success: false,
       output: '',

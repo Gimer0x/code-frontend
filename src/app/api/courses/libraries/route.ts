@@ -49,7 +49,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get course libraries error:', error)
       return createErrorResponse('Failed to get course libraries', 500)
     }
   })
@@ -86,7 +85,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Install library error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -137,7 +135,6 @@ export async function DELETE(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Remove library error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {

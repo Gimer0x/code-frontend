@@ -49,7 +49,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Get course dependencies error:', error)
     return NextResponse.json({
       success: false,
       error: 'Failed to get course dependencies'
@@ -107,7 +106,6 @@ export async function POST(request: NextRequest) {
           throw new Error(result.error || 'Dependency installation failed')
         }
       } catch (installError) {
-        console.error('❌ Dependency installation failed:', installError)
         return createErrorResponse(
           `Failed to install dependencies: ${installError instanceof Error ? installError.message : 'Unknown error'}`,
           500
@@ -137,7 +135,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Install dependencies error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -198,7 +195,6 @@ export async function DELETE(request: NextRequest) {
         // Note: The compilation client doesn't have a direct remove dependency method
         // This would need to be implemented in the Foundry service
         // For now, we'll just update the database
-        console.log(`Removing dependency ${validatedData.dependencyName} from course ${validatedData.courseId}`)
         
         // Simulate successful removal
         removeResult = {
@@ -206,7 +202,6 @@ export async function DELETE(request: NextRequest) {
           message: `Dependency ${validatedData.dependencyName} removed successfully`
         }
       } catch (removeError) {
-        console.error('❌ Dependency removal failed:', removeError)
         return createErrorResponse(
           `Failed to remove dependency: ${removeError instanceof Error ? removeError.message : 'Unknown error'}`,
           500
@@ -235,7 +230,6 @@ export async function DELETE(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Remove dependency error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {

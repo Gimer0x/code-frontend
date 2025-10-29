@@ -21,8 +21,6 @@ export async function POST(request: NextRequest) {
     const { code, courseId, lessonId } = testSchema.parse(body)
     const userId = session.user.id
 
-    console.log(`🧪 Testing code for student ${userId} in course ${courseId}`)
-
     // Extract contract name from student's code
     let contractName = 'TempContract' // default fallback
     const contractMatch = code.match(/contract\s+(\w+)/)
@@ -53,9 +51,8 @@ export async function POST(request: NextRequest) {
           isCompleted: false
         }
       })
-      console.log('✅ Code saved to database before testing')
+      
     } catch (dbError) {
-      console.error('❌ Failed to save code to database:', dbError)
       // Continue with testing even if database save fails
     }
 
@@ -79,7 +76,6 @@ export async function POST(request: NextRequest) {
     const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || 'http://localhost:3002'
     
     try {
-      console.log('🚀 Sending test request to Foundry service...')
       
       const foundryResponse = await fetch(`${foundryServiceUrl}/api/test`, {
         method: 'POST',
@@ -107,8 +103,7 @@ export async function POST(request: NextRequest) {
       }
 
       const foundryResult = await foundryResponse.json()
-      console.log('✅ Testing completed by Foundry service')
-
+      
       // Store test result in database
       if (foundryResult.success) {
         try {
@@ -128,10 +123,9 @@ export async function POST(request: NextRequest) {
                 testTime: foundryResult.result?.testTime || 0
               }
             })
-            console.log('✅ Test result stored in database')
+            
           }
         } catch (dbError) {
-          console.error('❌ Failed to store test result:', dbError)
           // Continue even if database storage fails
         }
       }
@@ -145,7 +139,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (foundryError) {
-      console.error('❌ Foundry service testing failed:', foundryError)
       
       return NextResponse.json({
         success: false,
@@ -166,7 +159,6 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Error in testing:', error)
     return NextResponse.json({ 
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'

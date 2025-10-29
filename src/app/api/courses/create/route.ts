@@ -74,14 +74,6 @@ export async function POST(request: NextRequest) {
       const body = await request.json()
       const validatedData = createCourseSchema.parse(body)
 
-      console.log('🚀 Creating course with enhanced Foundry integration:', {
-        title: validatedData.title,
-        language: validatedData.language,
-        modules: validatedData.modules?.length || 0,
-        dependencies: validatedData.dependencies?.length || 0,
-        templates: validatedData.templates?.length || 0
-      })
-
       // Use course creation service for comprehensive course creation
       const creationResult = await courseCreationService.createCourse({
         title: validatedData.title,
@@ -130,7 +122,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Course creation error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -165,7 +156,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get course creation info error:', error)
       return createErrorResponse('Failed to get course creation information', 500)
     }
   })

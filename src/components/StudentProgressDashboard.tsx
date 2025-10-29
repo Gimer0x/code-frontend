@@ -147,7 +147,6 @@ export default function StudentProgressDashboard({
         setAnalyticsData(data.data)
       }
     } catch (err) {
-      console.error('Failed to fetch analytics data:', err)
     }
   }
 

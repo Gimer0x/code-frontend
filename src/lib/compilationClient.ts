@@ -347,7 +347,6 @@ export class CompilationClient {
       // Handle network errors with retry logic
       if (error instanceof TypeError && error.message.includes('fetch')) {
         if (attempt < this.config.retryAttempts) {
-          console.warn(`Network error on attempt ${attempt}, retrying in ${this.config.retryDelay}ms...`)
           await this.delay(this.config.retryDelay * attempt) // Exponential backoff
           return this.makeRequest<T>(endpoint, options, attempt + 1)
         }

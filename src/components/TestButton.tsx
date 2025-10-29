@@ -37,12 +37,6 @@ interface TestButtonProps {
 export function TestResultsDisplay({ result, className }: { result: TestExecutionResult | null, className?: string }) {
   if (!result) return null
 
-  console.log('=== TestResultsDisplay DEBUG ===', new Date().toISOString())
-  console.log('Result received:', result)
-  console.log('Result.results:', result.results)
-  console.log('First test result:', result.results[0])
-  console.log('First test status:', result.results[0]?.status)
-
   const hasPassedTests = result.results.some(r => r.status === 'pass')
   const hasFailedTests = result.results.some(r => r.status === 'fail')
   const allPassed = result.success && result.results.length > 0 && result.results.every(r => r.status === 'pass')
@@ -88,14 +82,8 @@ export function TestResultsDisplay({ result, className }: { result: TestExecutio
       {/* Individual test results */}
       <div className="space-y-2">
         {result.results.map((test, index) => {
-          console.log(`Test ${index}:`, test)
-          console.log(`Test status:`, JSON.stringify(test.status))
-          console.log(`Status === 'pass':`, test.status === 'pass')
-          console.log(`Status trimmed === 'pass':`, test.status?.trim() === 'pass')
-          
           // More explicit status checking
           const isPassed = test.status === 'pass' || test.status?.trim() === 'pass'
-          console.log(`Final isPassed:`, isPassed)
           
           return (
           <div key={index} className={`p-3 rounded border-l-4 ${isPassed ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : 'bg-red-50 dark:bg-red-900/20 border-red-500'}`}>
@@ -277,8 +265,6 @@ export default function TestButton({
     onTestResult(null)
 
     try {
-      console.log('Starting test execution...')
-      
       const response = await fetch('/api/test', {
         method: 'POST',
         headers: {
@@ -323,21 +309,12 @@ export default function TestButton({
       }
 
       const result = await response.json()
-      console.log('Test API response:', result)
 
       // Use the structured testResults from Foundry service instead of parsing raw output
       const output = result.output || result.result?.output || '';
-      console.log('Test output:', output)
-      console.log('Full result object:', JSON.stringify(result, null, 2))
       
       // Use structured results from Foundry service if available, otherwise fallback to parsing
       const testResults = result.testResults || [];
-      console.log('=== DEBUG TEST RESULTS ===', new Date().toISOString())
-      console.log('Structured test results from Foundry service:', testResults)
-      console.log('Individual test result:', testResults[0])
-      console.log('Test status:', testResults[0]?.status)
-      console.log('Test gasUsed:', testResults[0]?.gasUsed)
-      console.log('Full result object:', JSON.stringify(result, null, 2))
       
       const transformedResult: TestExecutionResult = {
         success: result.success,
@@ -360,7 +337,6 @@ export default function TestButton({
         setShowSuccessToast(true)
       }
     } catch (error: any) {
-      console.error('Test execution error:', error)
 
       const errorResult: TestExecutionResult = {
         success: false,

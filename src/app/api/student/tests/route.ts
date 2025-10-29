@@ -89,7 +89,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Save test result error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -208,7 +207,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get test history error:', error)
       return createErrorResponse('Failed to get test history', 500)
     }
   })
@@ -270,7 +268,6 @@ export async function PUT(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get test result error:', error)
       return createErrorResponse('Failed to get test result', 500)
     }
   })

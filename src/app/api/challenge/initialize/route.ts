@@ -27,7 +27,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error initializing challenge:', error);
     return NextResponse.json({
       error: 'Failed to initialize challenge'
     }, { status: 500 });

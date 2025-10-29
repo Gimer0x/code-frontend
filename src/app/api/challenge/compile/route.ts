@@ -26,12 +26,10 @@ export async function POST(request: NextRequest) {
 
     // Clean the code to remove invisible characters and trailing whitespace
     const cleanCode = code.trim().replace(/[\u200B-\u200D\uFEFF]/g, '')
-    console.log('🔧 Compiling code for user:', session?.user?.id || 'anonymous', 'in course:', courseId)
-
+    
     // If skipSession is true, skip database operations and just compile
     if (skipSession) {
-      console.log('Skipping session creation for admin preview')
-      
+          
       // Extract contract name from cleaned code
       let contractName = 'TempContract'
       const contractMatch = cleanCode.match(/contract\s+(\w+)/)
@@ -91,7 +89,6 @@ export async function POST(request: NextRequest) {
           message: result.success ? 'Compilation successful' : 'Compilation failed'
         })
       } catch (compilationError: any) {
-        console.error('Compilation error:', compilationError)
         return NextResponse.json({
           success: false,
           errors: [{
@@ -122,9 +119,8 @@ export async function POST(request: NextRequest) {
       
       if (lesson) {
         actualLessonId = lesson.id
-        console.log(`Mapped temporary lesson ID ${lessonId} to actual lesson ID ${actualLessonId}`)
+        
       } else {
-        console.warn(`Could not find lesson for course ${courseId}, using temporary ID`)
       }
     }
 
@@ -139,12 +135,9 @@ export async function POST(request: NextRequest) {
     if (session?.user?.id) {
       try {
         await databaseService.saveStudentCode(session.user.id, courseId, actualLessonId, code)
-        console.log('Code saved to database before compilation')
       } catch (saveError) {
-        console.warn('Error saving code to database before compilation:', saveError)
       }
     } else {
-      console.warn('No authenticated user session, skipping database save')
     }
 
     // Use Fly.io compilation client for compilation
@@ -212,7 +205,6 @@ export async function POST(request: NextRequest) {
             compilationTime: result.result?.compilationTime
           })
         } catch (dbError) {
-          console.warn('Error saving compilation result to database:', dbError)
         }
       }
 
@@ -232,7 +224,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (compilationError) {
-      console.error('Compilation service error:', compilationError)
       
       // Handle CompilationError specifically
       if (compilationError instanceof CompilationError) {
@@ -267,7 +258,6 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
   } catch (error) {
-    console.error('Compile error:', error)
     return NextResponse.json({
       success: false,
       errors: [{

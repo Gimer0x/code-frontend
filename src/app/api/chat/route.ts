@@ -144,7 +144,6 @@ ${context}`
     })
 
   } catch (error) {
-    console.error('Chat API error:', error)
     
     // Handle specific OpenAI errors
     if (error instanceof Error) {

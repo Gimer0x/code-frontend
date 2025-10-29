@@ -83,15 +83,8 @@ export default function AdminDashboard() {
 
         if (response.ok) {
           const data = await response.json()
-          console.log('API Response:', data) // Debug log
+          
           const courses: Course[] = data.courses || []
-          console.log('Courses data:', courses) // Debug log
-          console.log('Course titles:', courses.map(c => ({ id: c.id, title: c.title, createdAt: c.createdAt }))) // Debug log
-          console.log('Course modules structure:', courses.map(c => ({ 
-            title: c.title, 
-            modules: c.modules, 
-            modulesLength: c.modules?.length || 0 
-          }))) // Debug log
           
           const totalCourses = courses.length
           const activeCourses = courses.filter(course => course.status?.toLowerCase() === 'active').length
@@ -117,15 +110,14 @@ export default function AdminDashboard() {
           const uniqueCourses = courses.filter((course, index, self) => 
             index === self.findIndex(c => c.id === course.id)
           )
-          console.log('Unique courses after deduplication:', uniqueCourses.length) // Debug log
+          
           
           const sortedCourses = uniqueCourses
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .slice(0, 4)
-          console.log('Final recent courses:', sortedCourses.map(c => c.title)) // Debug log
+          
           setRecentCourses(sortedCourses)
         } else {
-          console.error('Failed to fetch courses:', response.statusText)
           // Set default stats if API fails
           setStats({
             totalCourses: 0,
@@ -135,7 +127,6 @@ export default function AdminDashboard() {
           })
         }
       } catch (error) {
-        console.error('Error fetching course stats:', error)
         // Set default stats if error occurs
         setStats({
           totalCourses: 0,

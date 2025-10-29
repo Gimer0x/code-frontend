@@ -70,7 +70,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (foundryError) {
-      console.error('Foundry service compilation error:', foundryError)
       
       return NextResponse.json({
         success: false,
@@ -80,7 +79,6 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Compilation error:', error)
     return NextResponse.json({
       success: false,
       message: 'Compilation failed',

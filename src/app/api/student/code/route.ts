@@ -83,7 +83,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Save code error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -179,7 +178,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Load code error:', error)
       return createErrorResponse('Failed to load code', 500)
     }
   })
@@ -247,7 +245,6 @@ export async function DELETE(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Delete code error:', error)
       return createErrorResponse('Failed to delete code', 500)
     }
   })

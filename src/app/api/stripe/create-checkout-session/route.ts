@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
       try {
         await stripe.customers.retrieve(stripeCustomerId)
       } catch (error) {
-        console.log('Existing customer not found, creating new one:', stripeCustomerId)
         // Customer doesn't exist, create a new one
         const customer = await stripe.customers.create({
           email: user.email,
@@ -113,7 +112,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: checkoutSession.url })
   } catch (error) {
-    console.error('Error creating checkout session:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

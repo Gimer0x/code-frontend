@@ -63,7 +63,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get compiler configuration error:', error)
       return createErrorResponse('Failed to get compiler configuration', 500)
     }
   })
@@ -127,7 +126,6 @@ export async function PUT(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Update compiler configuration error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -190,7 +188,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Apply compiler preset error:', error)
       return createErrorResponse('Failed to apply compiler preset', 500)
     }
   })

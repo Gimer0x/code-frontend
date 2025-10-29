@@ -82,7 +82,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Save compilation result error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -193,7 +192,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get compilation history error:', error)
       return createErrorResponse('Failed to get compilation history', 500)
     }
   })
@@ -253,7 +251,6 @@ export async function PUT(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get compilation result error:', error)
       return createErrorResponse('Failed to get compilation result', 500)
     }
   })

@@ -456,7 +456,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       const data = await response.json()
       setHasActiveSubscription(data.hasActiveSubscription || false)
     } catch (error) {
-      console.error('Failed to check subscription status:', error)
       setHasActiveSubscription(false)
     }
   }
@@ -510,7 +509,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
         })
       }
     } catch (error) {
-      console.error('Failed to initialize project:', error)
       setInitializationStatus({
         initialized: false,
         ready: false,
@@ -530,8 +528,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
         if (session?.user?.id) {
           // Don't set code here - let the progress loading handle it
           Promise.all([
-            initializeProject().catch(err => console.error('Init project error:', err)),
-            checkSubscriptionStatus().catch(err => console.error('Subscription check error:', err))
           ])
         } else {
           // For anonymous users, use initial code immediately
@@ -540,7 +536,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
         }
         
       } catch (error) {
-        console.error('Failed to load progress:', error)
         // Fallback to admin's initial code on error
         setCode(lesson.initialCode || getDefaultSolidityTemplate())
         setIsLoadingCode(false)
@@ -759,7 +754,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                             await navigator.clipboard.writeText(codeText)
                             // You could add a toast notification here
                           } catch (err) {
-                            console.error('Failed to copy code:', err)
                           }
                         }
                         

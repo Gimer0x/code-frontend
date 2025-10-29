@@ -38,7 +38,6 @@ export class EmailService {
       })
       return true
     } catch (error) {
-      console.error('Email sending failed:', error)
       return false
     }
   }

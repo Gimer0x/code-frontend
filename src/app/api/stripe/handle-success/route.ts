@@ -65,8 +65,6 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    console.log(`Payment successful: User ${user.id} subscribed to ${plan}`)
-
     return NextResponse.json({ 
       success: true, 
       message: 'Subscription updated successfully',
@@ -77,7 +75,6 @@ export async function POST(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error handling payment success:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

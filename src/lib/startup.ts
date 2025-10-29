@@ -10,19 +10,13 @@ import { getEnvironmentConfig } from './config'
  * Initialize application with configuration validation
  */
 export function initializeApplication(): void {
-  console.log('🚀 Initializing DappDojo Application...')
-  console.log('=====================================')
 
   // Validate configuration
   validateAndExit()
 
   // Print configuration summary
   const config = getConfigurationSummary()
-  console.log('📋 Configuration Summary:')
-  console.log(JSON.stringify(config, null, 2))
 
-  console.log('✅ Application initialized successfully')
-  console.log('=====================================')
 }
 
 /**
@@ -81,17 +75,4 @@ export function getStartupInfo(): any {
 export function logStartupInfo(): void {
   const info = getStartupInfo()
   
-  console.log('📊 Startup Information:')
-  console.log('======================')
-  console.log(`Environment: ${info.environment}`)
-  console.log(`Port: ${info.port}`)
-  console.log(`Database: ${info.database.connected ? 'Connected' : 'Not Connected'}`)
-  console.log(`Fly.io Service: ${info.services.flyio.enabled ? 'Enabled' : 'Disabled'}`)
-  console.log(`Foundry Service: ${info.services.foundry.enabled ? 'Enabled' : 'Disabled'}`)
-  console.log(`Email: ${info.features.email ? 'Configured' : 'Not Configured'}`)
-  console.log(`Stripe: ${info.features.stripe ? 'Configured' : 'Not Configured'}`)
-  console.log(`Analytics: ${info.features.analytics ? 'Enabled' : 'Disabled'}`)
-  console.log(`Caching: ${info.features.caching ? 'Enabled' : 'Disabled'}`)
-  console.log(`Production Ready: ${info.productionReady ? 'Yes' : 'No'}`)
-  console.log('======================')
 }

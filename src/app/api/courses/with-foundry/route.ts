@@ -35,9 +35,7 @@ export async function POST(request: NextRequest) {
     const authResult = await requireAdmin(request)
     
     if (!authResult.success) {
-      console.log('Unauthorized access attempt:', { 
-        error: authResult.error 
-      })
+      
       return NextResponse.json({ 
         success: false,
         error: authResult.error || 'Unauthorized - Admin access required' 
@@ -47,12 +45,6 @@ export async function POST(request: NextRequest) {
     // Parse and validate request body
     const body = await request.json()
     const validatedData = createCourseWithFoundrySchema.parse(body)
-
-    console.log('🚀 Creating course with Foundry integration:', {
-      title: validatedData.title,
-      language: validatedData.language,
-      modules: validatedData.modules?.length || 0
-    })
 
     // Create course in database
     const course = await prisma.course.create({
@@ -97,13 +89,9 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    console.log('✅ Course created in database:', course.id)
-
     // Create course project in Foundry service for Solidity courses
     if (validatedData.language.toLowerCase() === 'solidity') {
-      try {
-        console.log('🔧 Creating course project in Foundry service...')
-        
+      try {        
         // Call Foundry service to create course project
         const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || 'http://localhost:3002'
         const courseData = {
@@ -143,8 +131,7 @@ export async function POST(request: NextRequest) {
         }
 
         const foundryResult = await foundryResponse.json()
-        console.log('✅ Course project created in Foundry service:', foundryResult)
-
+        
         // Update course with Foundry project information
         await prisma.courseProject.create({
           data: {
@@ -156,12 +143,8 @@ export async function POST(request: NextRequest) {
           }
         })
 
-        console.log('✅ Course project linked to database')
-
       } catch (foundryError) {
-        console.error('❌ Failed to create Foundry project:', foundryError)
         // Don't fail the course creation if Foundry project creation fails
-        console.warn('Course created but Foundry project creation failed. Project will be created on first compilation.')
       }
     }
 
@@ -173,7 +156,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Course creation error:', error)
     
     if (error instanceof z.ZodError) {
       return NextResponse.json({

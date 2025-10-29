@@ -76,7 +76,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get Foundry configuration error:', error)
       return createErrorResponse('Failed to get Foundry configuration', 500)
     }
   })
@@ -126,7 +125,6 @@ export async function PUT(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Update Foundry configuration error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -184,7 +182,6 @@ export async function DELETE(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Reset Foundry configuration error:', error)
       return createErrorResponse('Failed to reset Foundry configuration', 500)
     }
   })

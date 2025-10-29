@@ -10,8 +10,6 @@ export async function GET(
     const imagePath = params.path.join('/')
     const imageUrl = `${BACKEND_URL}/${imagePath}`
     
-    console.log('Proxying image request:', imageUrl) // Debug log
-    
     const response = await fetch(imageUrl)
     
     if (!response.ok) {
@@ -28,7 +26,6 @@ export async function GET(
     })
     
   } catch (error) {
-    console.error('Image proxy error:', error)
     return NextResponse.json({ error: 'Failed to load image' }, { status: 500 })
   }
 }

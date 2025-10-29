@@ -54,32 +54,23 @@ export default function CourseThumbnailUpload({
   }
 
   const uploadImage = async (file: File): Promise<string> => {
-    console.log('Starting image upload for file:', file.name, file.size, file.type) // Debug log
-    
     const formData = new FormData()
     formData.append('thumbnail', file)
-    
-    console.log('FormData created, sending to API...') // Debug log
 
     const response = await fetch('/api/upload/course-thumbnail', {
       method: 'POST',
       body: formData,
     })
 
-    console.log('Upload response status:', response.status) // Debug log
-
     if (!response.ok) {
       const errorData = await response.json()
-      console.error('Upload failed:', errorData) // Debug log
       throw new Error(errorData.error || 'Upload failed')
     }
 
     const data = await response.json()
-    console.log('Upload successful, full response:', data) // Debug log
     
     // Handle different possible response structures
     let imageUrl = data.url || data.imagePath || data.thumbnail || data.imageUrl || data.path
-    console.log('Extracted URL:', imageUrl) // Debug log
     
     if (!imageUrl) {
       throw new Error('No image URL returned from server')
@@ -88,34 +79,27 @@ export default function CourseThumbnailUpload({
     // If it's a relative path, convert to frontend proxy URL
     if (imageUrl.startsWith('uploads/')) {
       imageUrl = `/api/images/${imageUrl}`
-      console.log('Converted to proxy URL:', imageUrl) // Debug log
     }
     
     return imageUrl
   }
 
   const handleFile = async (file: File) => {
-    console.log('handleFile called with:', file.name, file.size, file.type) // Debug log
     setValidationError(null)
     setUploading(true)
     
     const validation = validateImage(file)
-    console.log('Image validation result:', validation) // Debug log
     
     if (!validation.isValid) {
-      console.error('Image validation failed:', validation.error) // Debug log
       setValidationError(validation.error || 'Invalid image file')
       setUploading(false)
       return
     }
 
     try {
-      console.log('Starting upload process...') // Debug log
       const imageUrl = await uploadImage(file)
-      console.log('Upload completed, calling onImageUpload with URL:', imageUrl) // Debug log
       onImageUpload(imageUrl)
     } catch (error) {
-      console.error('Upload error:', error) // Debug log
       setValidationError(error instanceof Error ? error.message : 'Upload failed')
     } finally {
       setUploading(false)

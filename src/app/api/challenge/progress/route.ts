@@ -32,7 +32,6 @@ export async function GET(request: NextRequest) {
       progress: progress || null
     })
   } catch (error) {
-    console.error('Get progress error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

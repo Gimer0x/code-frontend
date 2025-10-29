@@ -56,9 +56,7 @@ export class TemplateManager {
   async initialize(): Promise<void> {
     try {
       await this.loadTemplates()
-      console.log(`✅ Template manager initialized with ${this.templates.size} templates`)
     } catch (error) {
-      console.error('❌ Failed to initialize template manager:', error)
       throw error
     }
   }
@@ -74,7 +72,6 @@ export class TemplateManager {
       // Load built-in templates
       await this.loadBuiltInTemplates()
     } catch (error) {
-      console.error('Error loading templates:', error)
       throw error
     }
   }
@@ -981,7 +978,6 @@ This course teaches you how to build decentralized finance (DeFi) protocols incl
 
       return true
     } catch (error) {
-      console.error('Error applying template:', error)
       return false
     }
   }

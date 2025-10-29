@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error checking subscription status:', error);
     return NextResponse.json({
       success: true,
       hasActiveSubscription: false,

@@ -28,7 +28,6 @@ export async function GET(
     return NextResponse.json(data)
 
   } catch (error) {
-    console.error('Get lesson error:', error)
     return NextResponse.json({
       error: 'Failed to fetch lesson from backend'
     }, { status: 500 })
@@ -61,7 +60,6 @@ export async function PUT(
     return NextResponse.json(data)
 
   } catch (error) {
-    console.error('Update lesson error:', error)
     return NextResponse.json({
       error: 'Failed to update lesson'
     }, { status: 500 })
@@ -92,7 +90,6 @@ export async function DELETE(
     return NextResponse.json(data)
 
   } catch (error) {
-    console.error('Delete lesson error:', error)
     return NextResponse.json({
       error: 'Failed to delete lesson'
     }, { status: 500 })

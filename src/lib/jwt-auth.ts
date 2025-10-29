@@ -43,7 +43,6 @@ export async function verifyJWT(request: NextRequest): Promise<JWTPayload | null
       exp: 0  // Not needed for our use case
     }
   } catch (error) {
-    console.error('JWT verification error:', error)
     return null
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/jwt-auth'
 
 const BACKEND_URL = 'http://localhost:3002'
 
@@ -28,7 +29,6 @@ export async function GET(
     return NextResponse.json(data)
 
   } catch (error) {
-    console.error('Get course error:', error)
     return NextResponse.json({
       error: 'Failed to fetch course from backend'
     }, { status: 500 })
@@ -40,14 +40,28 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify admin authentication
+    const authResult = await requireAdmin(request)
+    
+    if (!authResult.success) {
+      return NextResponse.json({ 
+        success: false,
+        error: authResult.error || 'Admin access required' 
+      }, { status: 401 })
+    }
+
     const { id: courseId } = await params
     const body = await request.json()
 
-    // Forward request to backend
+    // Get the Authorization header from the original request
+    const authHeader = request.headers.get('authorization')
+
+    // Forward request to backend with Authorization header
     const backendResponse = await fetch(`${BACKEND_URL}/api/courses/${courseId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader && { 'Authorization': authHeader })
       },
       body: JSON.stringify(body),
     })
@@ -61,7 +75,6 @@ export async function PUT(
     return NextResponse.json(data)
 
   } catch (error) {
-    console.error('Update course error:', error)
     return NextResponse.json({
       error: 'Failed to update course'
     }, { status: 500 })
@@ -73,13 +86,27 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify admin authentication
+    const authResult = await requireAdmin(request)
+    
+    if (!authResult.success) {
+      return NextResponse.json({ 
+        success: false,
+        error: authResult.error || 'Admin access required' 
+      }, { status: 401 })
+    }
+
     const { id: courseId } = await params
 
-    // Forward request to backend
+    // Get the Authorization header from the original request
+    const authHeader = request.headers.get('authorization')
+
+    // Forward request to backend with Authorization header
     const backendResponse = await fetch(`${BACKEND_URL}/api/courses/${courseId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader && { 'Authorization': authHeader })
       },
     })
 
@@ -92,7 +119,6 @@ export async function DELETE(
     return NextResponse.json(data)
 
   } catch (error) {
-    console.error('Delete course error:', error)
     return NextResponse.json({
       error: 'Failed to delete course'
     }, { status: 500 })

@@ -95,26 +95,18 @@ export function validateConfiguration(): ValidationResult {
  * Print configuration validation results
  */
 export function printValidationResults(result: ValidationResult): void {
-  console.log('🔧 Configuration Validation Results:')
-  console.log('=====================================')
 
   if (result.isValid) {
-    console.log('✅ Configuration is valid')
   } else {
-    console.log('❌ Configuration has errors:')
     result.errors.forEach(error => {
-      console.log(`  • ${error}`)
     })
   }
 
   if (result.warnings.length > 0) {
-    console.log('⚠️  Configuration warnings:')
     result.warnings.forEach(warning => {
-      console.log(`  • ${warning}`)
     })
   }
 
-  console.log('=====================================')
 }
 
 /**
@@ -125,12 +117,10 @@ export function validateAndExit(): void {
   printValidationResults(result)
 
   if (!result.isValid) {
-    console.error('❌ Configuration validation failed. Please fix the errors above.')
     process.exit(1)
   }
 
   if (result.warnings.length > 0) {
-    console.log('⚠️  Please review the warnings above.')
   }
 }
 

@@ -20,8 +20,6 @@ export async function POST(request: NextRequest) {
     const { courseId, lessonId } = initializeSchema.parse(body)
     const userId = session.user.id
 
-    console.log(`🚀 Initializing student session for user ${userId} in course ${courseId}`)
-
     // Check if course has a Foundry project
     const courseProject = await prisma.courseProject.findUnique({
       where: { courseId },
@@ -37,8 +35,6 @@ export async function POST(request: NextRequest) {
       }, { status: 404 })
     }
 
-    console.log('✅ Course project found:', courseProject.id)
-
     // Check if student already has a session for this course
     const existingSession = await prisma.studentProgress.findFirst({
       where: {
@@ -49,7 +45,6 @@ export async function POST(request: NextRequest) {
     })
 
     if (existingSession) {
-      console.log('✅ Student session already exists')
       return NextResponse.json({ 
         message: 'Student session already initialized',
         initialized: true,
@@ -69,8 +64,6 @@ export async function POST(request: NextRequest) {
         isCompleted: false
       }
     })
-
-    console.log('✅ Student progress created:', studentProgress.id)
 
     // Get lesson details for initialization
     const lesson = await prisma.lesson.findUnique({
@@ -94,8 +87,6 @@ export async function POST(request: NextRequest) {
     const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || 'http://localhost:3002'
     
     try {
-      console.log('🔧 Initializing student session with Foundry service...')
-      
       // Create a unique session ID for this student-course-lesson combination
       const sessionId = `student-${userId}-course-${courseId}-lesson-${lessonId}`
       
@@ -139,8 +130,7 @@ export async function POST(request: NextRequest) {
       }
 
       const foundryResult = await foundryResponse.json()
-      console.log('✅ Student session initialized with Foundry service:', foundryResult)
-
+      
       // Update student progress with session information
       await prisma.studentProgress.update({
         where: { id: studentProgress.id },
@@ -163,7 +153,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (foundryError) {
-      console.error('❌ Failed to initialize with Foundry service:', foundryError)
       
       // Clean up the student progress record if Foundry initialization failed
       await prisma.studentProgress.delete({
@@ -179,7 +168,6 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Error in student session initialization:', error)
     return NextResponse.json({ 
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { authService } from '@/lib/auth-service'
 import CourseThumbnailUpload from './CourseThumbnailUpload'
 
 interface CourseCreationFormProps {
@@ -101,10 +102,13 @@ export default function SimpleCourseCreationForm({
     setError(null)
 
     try {
+      const authHeader = authService.getAuthHeader()
+      
       const response = await fetch('/api/courses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(authHeader && { 'Authorization': authHeader })
         },
         body: JSON.stringify({
           ...formData,

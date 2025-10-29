@@ -93,10 +93,8 @@ export async function POST(request: NextRequest) {
         
         if (status.status === 'active') {
           // Course project is ready on Fly.io
-          console.log(`Course ${courseId} project is ready on Fly.io`)
         }
       } catch (error) {
-        console.warn('Failed to initialize course project on Fly.io:', error)
         // Continue even if Fly.io initialization fails
       }
     }
@@ -110,7 +108,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Course initialization error:', error)
     return NextResponse.json({
       error: 'Failed to initialize course',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -162,7 +159,6 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (error) {
-      console.warn('Failed to check Fly.io status:', error)
     }
 
     return NextResponse.json({
@@ -174,7 +170,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Get initialization status error:', error)
     return NextResponse.json({
       error: 'Failed to get initialization status'
     }, { status: 500 })

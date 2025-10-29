@@ -201,7 +201,6 @@ export default function CompileButton({
     onCompilationResult(null)
 
     try {
-      console.log('Starting compilation with version:', selectedVersion)
       
       // Add timeout to prevent hanging
       const controller = new AbortController()
@@ -229,7 +228,6 @@ export default function CompileButton({
       }
 
       const apiResult = await response.json()
-      console.log('API result:', apiResult)
 
       // Transform the API response to match the expected CompilationResult format
       const result: CompilationResult = {
@@ -244,7 +242,6 @@ export default function CompileButton({
         timestamp: apiResult.timestamp
       }
 
-      console.log('Transformed result:', result)
 
       setLastResult(result)
       onCompilationResult(result)
@@ -254,7 +251,6 @@ export default function CompileButton({
         setShowSuccessToast(true)
       }
     } catch (error: any) {
-      console.error('Compilation error:', error)
       
       let errorMessage = error.message || 'Compilation failed'
       let errorType = 'RuntimeError'

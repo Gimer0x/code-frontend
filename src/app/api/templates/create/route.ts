@@ -100,7 +100,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Create template error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {

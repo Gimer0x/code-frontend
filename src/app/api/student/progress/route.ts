@@ -70,7 +70,6 @@ export async function GET(request: NextRequest) {
         lastSavedAt: 'desc'
       }
     }).catch(err => {
-      console.error('Database error:', err)
       return []
     })
 
@@ -128,7 +127,6 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Get student progress error:', error)
     return NextResponse.json({
       success: false,
       error: 'Failed to get student progress'
@@ -196,7 +194,6 @@ export async function PUT(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Update student progress error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {

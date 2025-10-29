@@ -61,7 +61,6 @@ export default function AdminTestButton({
       onTestResult(result)
 
     } catch (error: any) {
-      console.error('Test execution error:', error)
       onTestResult({
         success: false,
         results: [],

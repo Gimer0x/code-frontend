@@ -98,7 +98,6 @@ export async function GET(request: NextRequest) {
       categories: [...new Set(mockDependencies.map(dep => dep.category))]
     })
   } catch (error) {
-    console.error('Error fetching dependencies:', error)
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch dependencies'

@@ -22,11 +22,9 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await backendResponse.json()
-    console.log('Backend courses response:', JSON.stringify(data, null, 2)) // Debug log
     return NextResponse.json(data)
 
   } catch (error) {
-    console.error('Get courses error:', error)
     return NextResponse.json({
       error: 'Failed to fetch courses from backend'
     }, { status: 500 })
@@ -46,17 +44,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    console.log('Creating course with data:', JSON.stringify(body, null, 2)) // Debug log
     
-    // Forward request to backend
+    // Get the Authorization header from the original request
+    const authHeader = request.headers.get('authorization')
+        
+    // Forward request to backend with Authorization header
     const backendResponse = await fetch(`${BACKEND_URL}/api/courses`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader && { 'Authorization': authHeader })
       },
       body: JSON.stringify(body),
     })
 
+    
     if (!backendResponse.ok) {
       const errorData = await backendResponse.json()
       return NextResponse.json(errorData, { status: backendResponse.status })
@@ -66,7 +68,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data)
 
   } catch (error) {
-    console.error('Create course error:', error)
     return NextResponse.json({
       error: 'Failed to create course'
     }, { status: 500 })

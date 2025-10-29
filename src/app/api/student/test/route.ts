@@ -42,7 +42,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get test history error:', error)
       return createErrorResponse('Failed to get test history', 500)
     }
   })(request, { requireAuth: true })
@@ -100,7 +99,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Save test result error:', error)
       return createErrorResponse('Failed to save test result', 500)
     }
   })(request, { requireAuth: true })

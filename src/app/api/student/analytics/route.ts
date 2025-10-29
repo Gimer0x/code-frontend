@@ -239,7 +239,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get student analytics error:', error)
       return createErrorResponse('Failed to get student analytics', 500)
     }
   })
@@ -318,7 +317,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get leaderboard error:', error)
       return createErrorResponse('Failed to get leaderboard', 500)
     }
   })

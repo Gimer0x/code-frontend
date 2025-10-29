@@ -152,7 +152,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get student dashboard error:', error)
       return createErrorResponse('Failed to get student dashboard', 500)
     }
   })(request, { requireAuth: true })

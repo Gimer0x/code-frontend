@@ -73,7 +73,6 @@ export async function GET(request: NextRequest) {
           projectStatus = statusResult
         }
       } catch (statusError) {
-        console.warn('⚠️ Failed to get project status from Foundry service:', statusError)
       }
 
       return createSuccessResponse({
@@ -97,7 +96,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get course project error:', error)
       return createErrorResponse('Failed to get course project', 500)
     }
   })
@@ -153,7 +151,6 @@ export async function POST(request: NextRequest) {
           throw new Error(result.error || 'Action execution failed')
         }
       } catch (actionError) {
-        console.error(`❌ Project action ${validatedAction.action} failed:`, actionError)
         return createErrorResponse(
           `Failed to execute ${validatedAction.action} action: ${actionError instanceof Error ? actionError.message : 'Unknown error'}`,
           500
@@ -178,7 +175,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Execute project action error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -248,7 +244,6 @@ export async function PUT(request: NextRequest) {
           throw new Error(result.error || 'Configuration update failed')
         }
       } catch (updateError) {
-        console.error('❌ Project configuration update failed:', updateError)
         return createErrorResponse(
           `Failed to update project configuration: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`,
           500
@@ -282,7 +277,6 @@ export async function PUT(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Update project configuration error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -348,10 +342,8 @@ export async function DELETE(request: NextRequest) {
         if (result.success) {
           deleteResult = result
         } else {
-          console.warn('⚠️ Foundry service project deletion failed:', result.error)
         }
       } catch (deleteError) {
-        console.warn('⚠️ Failed to delete project from Foundry service:', deleteError)
       }
 
       // Delete project record from database
@@ -367,7 +359,6 @@ export async function DELETE(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Delete course project error:', error)
       return createErrorResponse('Failed to delete course project', 500)
     }
   })

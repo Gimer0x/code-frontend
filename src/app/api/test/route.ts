@@ -22,11 +22,9 @@ function extractTestName(testCode: string): string {
 
 export async function POST(request: NextRequest) {
   const requestId = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-  console.log(`[${requestId}] Starting test request`)
   
   try {
     const session = await getServerSession(authOptions)
-    console.log(`[${requestId}] Session:`, session?.user?.id || 'anonymous')
     
     // Temporarily disable authentication for testing
     // if (!session?.user?.id) {
@@ -34,12 +32,6 @@ export async function POST(request: NextRequest) {
     // }
 
     const body = await request.json()
-    console.log(`[${requestId}] Received request body:`, {
-      courseId: body.courseId,
-      lessonId: body.lessonId,
-      solutionCodeLength: body.solutionCode?.length || 0,
-      testCodeLength: body.testCode?.length || 0
-    })
     
     const { courseId, lessonId, solutionCode, testCode } = testSchema.parse(body)
 
@@ -47,7 +39,6 @@ export async function POST(request: NextRequest) {
     const cleanSolutionCode = solutionCode.trim().replace(/[\u200B-\u200D\uFEFF]/g, '')
     const cleanTestCode = testCode.trim().replace(/[\u200B-\u200D\uFEFF]/g, '')
     
-    console.log(`[${requestId}] Code cleaned - Solution: ${cleanSolutionCode.length} chars, Test: ${cleanTestCode.length} chars`)
 
     // Resolve the correct lesson ID if it's a temporary ID
     let actualLessonId = lessonId
@@ -66,9 +57,7 @@ export async function POST(request: NextRequest) {
       
       if (lesson) {
         actualLessonId = lesson.id
-        console.log(`Mapped temporary lesson ID ${lessonId} to actual lesson ID ${actualLessonId}`)
       } else {
-        console.warn(`Could not find lesson for course ${courseId}, using temporary ID`)
       }
     }
 
@@ -82,11 +71,9 @@ export async function POST(request: NextRequest) {
     const testName = extractTestName(cleanTestCode)
     const testFileName = `${testName}.t.sol`
 
-    console.log(`[${requestId}] Contract: ${contractName}, Test: ${testName}`)
 
     // Call Foundry service for testing (new course-based architecture)
     const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || 'http://localhost:3002'
-    console.log(`[${requestId}] Calling Foundry service at: ${foundryServiceUrl}`)
     
     try {
       const foundryPayload = {
@@ -99,7 +86,6 @@ export async function POST(request: NextRequest) {
         testName,
         options: {}
       }
-      console.log(`[${requestId}] Sending to Foundry service:`, {
         userId: foundryPayload.userId,
         courseId: foundryPayload.courseId,
         lessonId: foundryPayload.lessonId,
@@ -117,7 +103,6 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify(foundryPayload)
       })
       
-      console.log(`[${requestId}] Foundry service response status: ${foundryResponse.status}`)
 
       if (!foundryResponse.ok) {
         const errorText = await foundryResponse.text()
@@ -125,7 +110,6 @@ export async function POST(request: NextRequest) {
       }
 
       const result = await foundryResponse.json()
-      console.log(`[${requestId}] Foundry service response:`, {
         success: result.success,
         message: result.message,
         hasResult: !!result.result,
@@ -134,7 +118,6 @@ export async function POST(request: NextRequest) {
       })
       
       if (!result.success) {
-        console.log(`[${requestId}] Foundry service returned failure:`, result)
         return NextResponse.json({
           success: false,
           message: result.error || 'Test execution failed',
@@ -142,7 +125,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      console.log(`[${requestId}] Test completed successfully, returning results`)
       // Return the test results from Foundry service
       return NextResponse.json({
         success: result.success,
@@ -158,7 +140,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (foundryError) {
-      console.error(`[${requestId}] Foundry service test error:`, foundryError)
       
       return NextResponse.json({
         success: false,
@@ -168,7 +149,6 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error(`[${requestId}] Test API error:`, error)
     return NextResponse.json({
       success: false,
       message: 'Test execution failed',

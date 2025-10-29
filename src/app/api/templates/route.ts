@@ -119,7 +119,6 @@ export async function GET(request: NextRequest) {
       total: mockTemplates.length
     })
   } catch (error) {
-    console.error('Error fetching templates:', error)
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch templates'
@@ -164,7 +163,6 @@ export async function POST(request: NextRequest) {
         message: 'Template created successfully'
       })
     } catch (error) {
-      console.error('Error creating template:', error)
       return createErrorResponse('Failed to create template', 500)
     }
   }, ['ADMIN']) // Only admins can create templates

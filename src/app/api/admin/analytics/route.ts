@@ -168,7 +168,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get admin analytics error:', error)
       return createErrorResponse('Failed to get admin analytics', 500)
     }
   })(request, { requireAuth: true, requireAdmin: true })

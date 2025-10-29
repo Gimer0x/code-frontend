@@ -42,16 +42,12 @@ export class FoundryManager {
       const maxAttempts = 15 // Increased to 15 seconds
       
       while (!fs.existsSync(openZeppelinPath) && attempts < maxAttempts) {
-        console.log(`Waiting for OpenZeppelin installation... (attempt ${attempts + 1}/${maxAttempts})`)
         await new Promise(resolve => setTimeout(resolve, 1000))
         attempts++
       }
       
       if (!fs.existsSync(openZeppelinPath)) {
-        console.warn(`OpenZeppelin installation may not have completed after ${maxAttempts} seconds`)
-        console.warn(`Project may not be fully ready for compilation`)
       } else {
-        console.log(`OpenZeppelin installation verified`)
       }
     } else {
       // Ensure existing projects have warning configuration
@@ -89,16 +85,12 @@ export class FoundryManager {
       const maxAttempts = 15 // Increased to 15 seconds
       
       while (!fs.existsSync(openZeppelinPath) && attempts < maxAttempts) {
-        console.log(`Waiting for OpenZeppelin installation... (attempt ${attempts + 1}/${maxAttempts})`)
         await new Promise(resolve => setTimeout(resolve, 1000))
         attempts++
       }
       
       if (!fs.existsSync(openZeppelinPath)) {
-        console.warn(`OpenZeppelin installation may not have completed after ${maxAttempts} seconds`)
-        console.warn(`Project may not be fully ready for compilation`)
       } else {
-        console.log(`OpenZeppelin installation verified`)
       }
     }
 
@@ -119,10 +111,8 @@ export class FoundryManager {
       
       if (fs.existsSync(contractOutDir)) {
         fs.rmSync(contractOutDir, { recursive: true, force: true })
-        console.log(`Cleaned up compilation artifacts for ${contractName}`)
       }
     } catch (cleanupError) {
-      console.warn(`Failed to clean up compilation artifacts for ${contractName}:`, cleanupError)
     }
   }
 
@@ -148,7 +138,6 @@ $2`
         )
         
         fs.writeFileSync(foundryConfigPath, updatedConfig)
-        console.log(`Updated foundry.toml with warning configuration at ${projectPath}`)
       }
     }
   }
@@ -183,9 +172,7 @@ remappings = [
       // Initialize git repository first
       try {
         await execPromise(`cd ${projectPath} && git init`)
-        console.log(`Git repository initialized at ${projectPath}`)
       } catch (gitError) {
-        console.log('Git init failed, continuing...')
       }
 
       // Initialize forge project
@@ -194,9 +181,7 @@ remappings = [
           maxBuffer: 1024 * 1024 * 5, // 5MB buffer
           encoding: 'utf8'
         })
-        console.log(`Foundry project initialized at ${projectPath}`)
       } catch (initError) {
-        console.log('Forge init failed, continuing with manual setup...')
       }
 
       // Install forge-std
@@ -205,9 +190,7 @@ remappings = [
           maxBuffer: 1024 * 1024 * 5, // 5MB buffer
           encoding: 'utf8'
         })
-        console.log('Forge-std installed')
       } catch (installError) {
-        console.log('Forge-std install failed, continuing...')
       }
 
       // Install OpenZeppelin contracts
@@ -216,13 +199,10 @@ remappings = [
           maxBuffer: 1024 * 1024 * 5, // 5MB buffer
           encoding: 'utf8'
         })
-        console.log('OpenZeppelin contracts installed')
       } catch (installError) {
-        console.log('OpenZeppelin install failed, continuing...')
       }
 
     } catch (error) {
-      console.error('Error initializing Foundry project:', error)
       throw error
     }
   }
@@ -236,7 +216,6 @@ remappings = [
     
     // Write the solution code to the contract file
     fs.writeFileSync(contractPath, solutionCode)
-    console.log(`Updated solution code for ${contractName} in course ${courseId}`)
   }
 
   /**
@@ -253,9 +232,7 @@ remappings = [
         const oldFilePath = path.join(srcDir, file)
         try {
           fs.unlinkSync(oldFilePath)
-          console.log(`Removed old contract file: ${file}`)
         } catch (error) {
-          console.warn(`Could not remove old file ${file}:`, error)
         }
       }
     })
@@ -263,7 +240,6 @@ remappings = [
     // Write the solution code to the contract file
     const contractPath = path.join(srcDir, `${contractName}.sol`)
     fs.writeFileSync(contractPath, solutionCode)
-    console.log(`Updated student solution code for ${contractName} in student ${userId} course ${courseId}`)
   }
 
   /**
@@ -275,7 +251,6 @@ remappings = [
     
     // Write the test code to the test file
     fs.writeFileSync(testPath, testCode)
-    console.log(`Updated test code for ${testName} in course ${courseId}`)
   }
 
   /**
@@ -297,7 +272,6 @@ remappings = [
       try {
         // Run specific test file
         const command = `cd ${project.projectPath} && forge test test/${testFileName} --json`
-        console.log(`Running command: ${command}`)
         
         const result = await execPromise(command, {
           maxBuffer: 1024 * 1024 * 10, // 10MB buffer
@@ -420,14 +394,12 @@ remappings = [
       const contractOutDir = path.join(outDir, contractName)
       if (fs.existsSync(contractOutDir)) {
         fs.rmSync(contractOutDir, { recursive: true, force: true })
-        console.log(`Cleaned contract output directory: ${contractOutDir}`)
       }
       
       // Write the code to the contract file
       fs.writeFileSync(contractFilePath, code)
       
       // Use spawn for better handling of large outputs
-      console.log(`Running Foundry compilation in ${project.projectPath}`)
       
       const result = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
         const { spawn } = require('child_process')
@@ -533,7 +505,6 @@ remappings = [
           }
         }
       } catch (parseError) {
-        console.error('Failed to parse compilation output:', parseError)
         errors.push({
           severity: 'error',
           message: 'Failed to parse compilation output',
@@ -550,7 +521,6 @@ remappings = [
         warnings
       }
     } catch (error) {
-      console.error('Compilation error:', error)
       return {
         success: false,
         errors: [{
@@ -582,8 +552,6 @@ remappings = [
       const contractName = testFileName.replace('Test.t.sol', '').replace('.t.sol', '')
       this.cleanupContractArtifacts(projectPath, contractName)
 
-      console.log(`Running tests in ${projectPath}`)
-      console.log(`Test file: ${testFileName}`)
 
       // Clean up old test files that reference deleted contracts
       const testDir = path.join(projectPath, 'test')
@@ -597,9 +565,7 @@ remappings = [
             const oldTestPath = path.join(testDir, file)
             try {
               fs.unlinkSync(oldTestPath)
-              console.log(`Removed old test file: ${file}`)
             } catch (error) {
-              console.warn(`Could not remove old test file ${file}:`, error)
             }
           }
         })
@@ -613,9 +579,7 @@ remappings = [
             const oldScriptPath = path.join(scriptDir, file)
             try {
               fs.unlinkSync(oldScriptPath)
-              console.log(`Removed old script file: ${file}`)
             } catch (error) {
-              console.warn(`Could not remove old script file ${file}:`, error)
             }
           }
         })
@@ -623,14 +587,11 @@ remappings = [
 
       // Run forge test with specific test file
       const command = `cd "${projectPath}" && forge test test/${testFileName} --json`
-      console.log(`Running command: ${command}`)
       
       try {
         const { stdout, stderr } = await execPromise(command, { timeout: 30000 })
         
-        console.log('Test output:', stdout)
         if (stderr) {
-          console.log('Test stderr:', stderr)
         }
 
         // Parse the JSON output
@@ -642,7 +603,6 @@ remappings = [
           
           return this.parseTestResults(testOutput)
         } catch (parseError) {
-          console.error('Failed to parse test output:', parseError)
           return {
             success: false,
             message: 'Failed to parse test results',
@@ -653,7 +613,6 @@ remappings = [
       } catch (execError: any) {
         // Handle case where tests fail but still return JSON output
         if (execError.stdout) {
-          console.log('Test output (from error):', execError.stdout)
           try {
             const testOutput = JSON.parse(execError.stdout)
             
@@ -662,7 +621,6 @@ remappings = [
             
             return this.parseTestResults(testOutput)
           } catch (parseError) {
-            console.error('Failed to parse test output from error:', parseError)
             return {
               success: false,
               message: 'Failed to parse test results',
@@ -674,7 +632,6 @@ remappings = [
         throw execError
       }
     } catch (error) {
-      console.error('Test execution error:', error)
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Test execution failed',
@@ -730,7 +687,6 @@ remappings = [
         }
       }
     } catch (error) {
-      console.error('Error parsing test results:', error)
       results.errors.push({
         message: 'Failed to parse test results',
         type: 'ParseError'
@@ -745,7 +701,6 @@ remappings = [
    */
   async cleanupOldProjects(): Promise<void> {
     // Implementation for future cleanup
-    console.log('Cleanup not implemented yet')
   }
 }
 

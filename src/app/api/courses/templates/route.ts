@@ -41,7 +41,6 @@ export async function GET(request: NextRequest) {
           availableTemplates = templatesResult.templates || []
         }
       } catch (templateError) {
-        console.warn('⚠️ Failed to get available templates:', templateError)
       }
 
       // If courseId is provided, get course-specific templates
@@ -91,7 +90,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get templates error:', error)
       return createErrorResponse('Failed to get templates', 500)
     }
   })
@@ -148,7 +146,6 @@ export async function POST(request: NextRequest) {
           throw new Error(result.error || 'Template application failed')
         }
       } catch (applyError) {
-        console.error('❌ Template application failed:', applyError)
         return createErrorResponse(
           `Failed to apply template: ${applyError instanceof Error ? applyError.message : 'Unknown error'}`,
           500
@@ -188,7 +185,6 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Apply template error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -267,7 +263,6 @@ export async function DELETE(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Remove template error:', error)
       return createErrorResponse('Failed to remove template', 500)
     }
   })

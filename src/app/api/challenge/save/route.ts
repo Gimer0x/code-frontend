@@ -45,7 +45,6 @@ export async function POST(request: NextRequest) {
       savedAt: new Date().toISOString()
     })
   } catch (error) {
-    console.error('Save error:', error)
     return NextResponse.json({
       success: false,
       error: 'Failed to save progress'

@@ -165,7 +165,6 @@ contract ${contractName}Test is Test {
           timestamp: new Date().toISOString()
         })
       } catch (error) {
-        console.error('Foundry service test error:', error)
         return NextResponse.json({
           success: false,
           message: 'Failed to run tests via foundry service',
@@ -202,8 +201,6 @@ contract ${contractName}Test is Test {
         contractName = initialContractMatch[1]
       }
     }
-
-    console.log(`Testing contract: ${contractName}`)
 
     // Use Fly.io compilation client for testing
     const client = getCompilationClient()
@@ -277,9 +274,8 @@ contract ${contractName}Test is Test {
       // Save the code to database after successful test
       try {
         await databaseService.saveStudentCode(session.user.id, courseId, lessonId, code)
-        console.log('Code saved to database successfully')
+        
       } catch (saveError) {
-        console.warn('Error saving code to database:', saveError)
       }
 
       // Save test result to database
@@ -301,7 +297,6 @@ contract ${contractName}Test is Test {
           testTime: result.testTime
         })
       } catch (dbError) {
-        console.warn('Error saving test result to database:', dbError)
       }
 
       // Return the test results from Fly.io service
@@ -323,7 +318,6 @@ contract ${contractName}Test is Test {
       })
 
     } catch (testError) {
-      console.error('Test service error:', testError)
       
       // Handle CompilationError specifically
       if (testError instanceof CompilationError) {
@@ -349,7 +343,6 @@ contract ${contractName}Test is Test {
     }
 
   } catch (error) {
-    console.error('Test error:', error)
     return NextResponse.json({
       success: false,
       message: 'Test execution failed',

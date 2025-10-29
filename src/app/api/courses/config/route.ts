@@ -80,7 +80,6 @@ export async function GET(request: NextRequest) {
           }
         }
       } catch (statusError) {
-        console.warn('⚠️ Failed to get project status from Foundry service:', statusError)
       }
 
       // Default configuration if none exists
@@ -121,7 +120,6 @@ export async function GET(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Get course configuration error:', error)
       return createErrorResponse('Failed to get course configuration', 500)
     }
   })
@@ -176,7 +174,6 @@ export async function PUT(request: NextRequest) {
           throw new Error(result.error || 'Configuration update failed')
         }
       } catch (updateError) {
-        console.error('❌ Configuration update failed:', updateError)
         return createErrorResponse(
           `Failed to update configuration: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`,
           500
@@ -207,7 +204,6 @@ export async function PUT(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Update course configuration error:', error)
       
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
@@ -300,7 +296,6 @@ export async function DELETE(request: NextRequest) {
           throw new Error(result.error || 'Configuration reset failed')
         }
       } catch (resetError) {
-        console.error('❌ Configuration reset failed:', resetError)
         return createErrorResponse(
           `Failed to reset configuration: ${resetError instanceof Error ? resetError.message : 'Unknown error'}`,
           500
@@ -331,7 +326,6 @@ export async function DELETE(request: NextRequest) {
       })
 
     } catch (error) {
-      console.error('Reset course configuration error:', error)
       return createErrorResponse('Failed to reset course configuration', 500)
     }
   })
