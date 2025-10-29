@@ -323,8 +323,9 @@ const SolidityEditor: React.FC<SolidityEditorProps> = ({
     <div className={`solidity-editor-container ${className}`} style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {/* Copy Button */}
       <button
+        type="button"
         onClick={copyToClipboard}
-        className="absolute top-2 right-2 z-10 p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-md transition-all duration-200 opacity-70 hover:opacity-100"
+        className="absolute top-2 right-4 z-10 p-2 text-gray-400 hover:text-gray-200 rounded-md transition-all duration-200 opacity-70 hover:opacity-100"
         title={copySuccess ? 'Copied!' : 'Copy code'}
       >
         {copySuccess ? (
