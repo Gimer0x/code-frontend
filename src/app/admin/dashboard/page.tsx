@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
+import { useAuth } from '@/contexts/AuthContext'
+import AdminRoute from '@/components/AdminRoute'
 
 interface User {
   id: string
   email: string
   name: string
-  role: string
+  role: 'ADMIN' | 'STUDENT'
 }
 
 interface Course {
@@ -35,7 +36,7 @@ interface DashboardStats {
 }
 
 export default function AdminDashboard() {
-  const { data: session, status } = useSession()
+  const { user, logout } = useAuth()
   const [showPasswordChange, setShowPasswordChange] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -67,8 +68,8 @@ export default function AdminDashboard() {
     //   return
     // }
 
-    // User data is now available through session
-  }, [router, session, status])
+    // User data is now available through user context
+  }, [router, user])
 
   // Fetch course statistics
   useEffect(() => {
@@ -78,14 +79,24 @@ export default function AdminDashboard() {
 
         if (response.ok) {
           const data = await response.json()
+          console.log('API Response:', data) // Debug log
           const courses: Course[] = data.courses || []
+          console.log('Courses data:', courses) // Debug log
+          console.log('Course titles:', courses.map(c => ({ id: c.id, title: c.title, createdAt: c.createdAt }))) // Debug log
           
           const totalCourses = courses.length
-          const activeCourses = courses.filter(course => course.status.toLowerCase() === 'active').length
-          const totalModules = courses.reduce((sum, course) => sum + course.modules.length, 0)
-          const totalLessons = courses.reduce((sum, course) => 
-            sum + course.modules.reduce((moduleSum, module) => moduleSum + module.lessons.length, 0), 0
-          )
+          const activeCourses = courses.filter(course => course.status?.toLowerCase() === 'active').length
+          const totalModules = courses.reduce((sum, course) => {
+            const modules = course.modules || []
+            return sum + modules.length
+          }, 0)
+          const totalLessons = courses.reduce((sum, course) => {
+            const modules = course.modules || []
+            return sum + modules.reduce((moduleSum, module) => {
+              const lessons = module.lessons || []
+              return moduleSum + lessons.length
+            }, 0)
+          }, 0)
 
           setStats({
             totalCourses,
@@ -94,14 +105,36 @@ export default function AdminDashboard() {
             totalLessons
           })
 
-          // Set recent courses (last 3 created)
-          const sortedCourses = courses
+          // Remove duplicates based on course ID and set recent courses (last 4 created)
+          const uniqueCourses = courses.filter((course, index, self) => 
+            index === self.findIndex(c => c.id === course.id)
+          )
+          console.log('Unique courses after deduplication:', uniqueCourses.length) // Debug log
+          
+          const sortedCourses = uniqueCourses
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            .slice(0, 3)
+            .slice(0, 4)
+          console.log('Final recent courses:', sortedCourses.map(c => c.title)) // Debug log
           setRecentCourses(sortedCourses)
+        } else {
+          console.error('Failed to fetch courses:', response.statusText)
+          // Set default stats if API fails
+          setStats({
+            totalCourses: 0,
+            activeCourses: 0,
+            totalModules: 0,
+            totalLessons: 0
+          })
         }
       } catch (error) {
         console.error('Error fetching course stats:', error)
+        // Set default stats if error occurs
+        setStats({
+          totalCourses: 0,
+          activeCourses: 0,
+          totalModules: 0,
+          totalLessons: 0
+        })
       } finally {
         setIsLoadingStats(false)
       }
@@ -109,10 +142,11 @@ export default function AdminDashboard() {
 
     // For demo purposes, always fetch stats
     fetchStats()
-  }, [session])
+  }, [user])
 
   const handleLogout = () => {
-    signOut({ callbackUrl: '/admin/login' })
+    logout()
+    router.push('/admin/login')
   }
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -193,7 +227,8 @@ export default function AdminDashboard() {
   // }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <AdminRoute>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="bg-gray-333 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -213,7 +248,7 @@ export default function AdminDashboard() {
             
             <div className="flex items-center space-x-4">
               <span className="text-white text-sm">
-                Welcome, Demo Admin
+                Welcome, {user?.name || 'Admin'}
               </span>
               <button
                 onClick={() => setShowPasswordChange(true)}
@@ -389,16 +424,16 @@ export default function AdminDashboard() {
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900 dark:text-white">{course.title}</h4>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {course.level} • {course.access} • {course.modules.length} modules
+                        {course.level} • {course.access} • {course.modules?.length || 0} modules
                       </p>
                     </div>
                     <div className="flex items-center space-x-2">
                       <span className={`px-2 py-1 text-xs rounded-full ${
-                        course.status.toLowerCase() === 'active' 
+                        course.status?.toLowerCase() === 'active' 
                           ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                           : 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200'
                       }`}>
-                        {course.status}
+                        {course.status || 'Unknown'}
                       </span>
                       <Link 
                         href={`/admin/courses/${course.id}/edit`}
@@ -552,6 +587,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AdminRoute>
   )
 }

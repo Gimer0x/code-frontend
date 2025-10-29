@@ -1,6 +1,6 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -94,7 +94,7 @@ const mockCourses = [
 ]
 
 export default function CoursesPage() {
-  const { data: session, status } = useSession()
+  const { user } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [userSubscription, setUserSubscription] = useState<any>(null)
@@ -220,7 +220,7 @@ export default function CoursesPage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">All Courses</h1>
               <p className="text-gray-600 mt-2">
-                Welcome back, {session.user?.name || session.user?.email}!
+                Welcome back, {user?.name || user?.email || 'Guest'}!
               </p>
             </div>
             <div className="text-right">

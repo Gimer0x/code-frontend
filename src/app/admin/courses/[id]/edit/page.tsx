@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
+import { useAuth } from '@/contexts/AuthContext'
+import AdminRoute from '@/components/AdminRoute'
 import Link from 'next/link'
 import ImageUpload from '@/components/ImageUpload'
 import CodeEditor from '@/components/CodeEditor'
@@ -15,7 +16,7 @@ interface User {
   id: string
   email: string
   name: string
-  role: string
+  role: 'ADMIN' | 'STUDENT'
 }
 
 interface Lesson {
@@ -51,7 +52,7 @@ interface Course {
 }
 
 export default function EditCourse() {
-  const { data: session, status } = useSession()
+  const { user, loading } = useAuth()
   const [course, setCourse] = useState<Course | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -458,19 +459,19 @@ export default function EditCourse() {
   const courseId = params.id as string
 
   useEffect(() => {
-    // Check if user is authenticated with NextAuth.js
-    if (status === 'loading') return // Still loading
+    // Check if user is authenticated
+    if (loading) return // Still loading
     
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!user || user.role !== 'ADMIN') {
       router.push('/admin/login')
       return
     }
 
-    // User data is now available through session
+    // User data is now available through user context
 
     // Fetch course data
     fetchCourse()
-  }, [router, courseId, session, status])
+  }, [router, courseId, user, loading])
 
   const fetchCourse = async () => {
     try {
@@ -850,7 +851,7 @@ export default function EditCourse() {
     )
   }
 
-  if (status === 'loading') {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -861,17 +862,8 @@ export default function EditCourse() {
     )
   }
 
-  if (!session) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600 dark:text-gray-400">Redirecting to login...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
+    <AdminRoute>
     <div className="h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       <main className="flex-1 flex flex-col">
         <div className="bg-white dark:bg-gray-900 shadow flex-1 flex flex-col">
@@ -884,13 +876,13 @@ export default function EditCourse() {
               </div>
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {session.user.email}
+                  {user?.email}
                 </span>
                 <Link
-                  href="/admin/courses"
+                  href="/admin/dashboard"
                   className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                 >
-                  ← Back to Courses
+                  ← Back to Dashboard
                 </Link>
               </div>
             </div>
@@ -1034,7 +1026,7 @@ export default function EditCourse() {
                     {/* Action Buttons */}
                     <div className="flex space-x-2 mb-3">
                       <Link
-                        href="/admin/courses"
+                        href="/admin/dashboard"
                         className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm text-center"
                       >
                         Cancel
@@ -1704,5 +1696,6 @@ export default function EditCourse() {
         </div>
       </main>
     </div>
+    </AdminRoute>
   )
 }

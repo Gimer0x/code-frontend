@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireAdmin } from '@/lib/jwt-auth'
 import { z } from 'zod'
 
 // Validation schema for course creation with Foundry integration
@@ -32,22 +31,16 @@ const createCourseWithFoundrySchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify authentication using NextAuth.js
-    const session = await getServerSession(authOptions)
-    console.log('Session check:', { 
-      hasSession: !!session, 
-      userId: session?.user?.id, 
-      userRole: session?.user?.role 
-    })
+    // Verify authentication using JWT
+    const authResult = await requireAdmin(request)
     
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!authResult.success) {
       console.log('Unauthorized access attempt:', { 
-        hasSession: !!session, 
-        userRole: session?.user?.role 
+        error: authResult.error 
       })
       return NextResponse.json({ 
         success: false,
-        error: 'Unauthorized - Admin access required' 
+        error: authResult.error || 'Unauthorized - Admin access required' 
       }, { status: 401 })
     }
 

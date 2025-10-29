@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useSession } from 'next-auth/react'
+import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -58,14 +58,14 @@ const pricingPlans = [
 ]
 
 export default function PricingPage() {
-  const { data: session, status } = useSession()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
 
   const handlePlanSelect = async (plan: string) => {
-    if (status === 'loading') return
+    if (authLoading) return
 
-    if (!session) {
+    if (!user) {
       router.push('/auth/signin?callbackUrl=/pricing')
       return
     }

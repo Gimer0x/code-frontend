@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSession, signOut } from 'next-auth/react'
+import { useAuth } from '@/contexts/AuthContext'
+import AdminRoute from '@/components/AdminRoute'
 import Link from 'next/link'
 import CourseManagementDashboard from '@/components/CourseManagementDashboard'
 
@@ -10,7 +11,7 @@ interface User {
   id: string
   email: string
   name: string
-  role: string
+  role: 'ADMIN' | 'STUDENT'
 }
 
 interface Course {
@@ -37,20 +38,20 @@ interface Course {
 }
 
 export default function AdminCourses() {
-  const { data: session, status } = useSession()
+  const { user, loading, logout } = useAuth()
   const [courses, setCourses] = useState<Course[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
-    if (status === 'loading') return
-    if (!session || session.user.role !== 'ADMIN') {
+    if (loading) return
+    if (!user || user.role !== 'ADMIN') {
       router.push('/admin/login')
       return
     }
     fetchCourses()
-  }, [router, session, status])
+  }, [router, user, loading])
 
   const fetchCourses = async () => {
     try {
@@ -58,9 +59,11 @@ export default function AdminCourses() {
       setError(null)
       const response = await fetch('/api/courses')
       const data = await response.json()
+      console.log('Courses API Response:', data) // Debug log
       
       if (data.success) {
-        setCourses(data.courses)
+        console.log('Courses data:', data.courses) // Debug log
+        setCourses(data.courses || [])
       } else {
         setError(data.error || 'Failed to fetch courses')
       }
@@ -71,7 +74,7 @@ export default function AdminCourses() {
     }
   }
 
-  if (status === 'loading') {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -82,18 +85,10 @@ export default function AdminCourses() {
     )
   }
 
-  if (!session || session.user.role !== 'ADMIN') {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600 dark:text-gray-400">Redirecting to login...</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <AdminRoute>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -106,10 +101,10 @@ export default function AdminCourses() {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                {session.user.email}
+                {user?.email}
               </span>
               <button
-                onClick={() => signOut()}
+                onClick={() => logout()}
                 className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               >
                 Sign Out
@@ -135,6 +130,7 @@ export default function AdminCourses() {
           )}
         </div>
       </main>
-    </div>
+      </div>
+    </AdminRoute>
   )
 }

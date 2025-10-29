@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
+import { useAuth } from '@/contexts/AuthContext'
+import AdminRoute from '@/components/AdminRoute'
 import Link from 'next/link'
 import CourseCreationForm from '@/components/CourseCreationForm'
 
@@ -10,20 +11,20 @@ interface User {
   id: string
   email: string
   name: string
-  role: string
+  role: 'ADMIN' | 'STUDENT'
 }
 
 export default function CreateCourse() {
-  const { data: session, status } = useSession()
+  const { user, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (status === 'loading') return
-    if (!session || session.user.role !== 'ADMIN') {
+    if (loading) return
+    if (!user || user.role !== 'ADMIN') {
       router.push('/admin/login')
       return
     }
-  }, [router, session, status])
+  }, [router, user, loading])
 
   const handleSuccess = (courseId: string) => {
     router.push(`/admin/courses/${courseId}/edit`)
@@ -33,7 +34,7 @@ export default function CreateCourse() {
     router.push('/admin/courses')
   }
 
-  if (status === 'loading') {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -44,18 +45,10 @@ export default function CreateCourse() {
     )
   }
 
-  if (!session || session.user.role !== 'ADMIN') {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600 dark:text-gray-400">Redirecting to login...</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <AdminRoute>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <main className="max-w-6xl mx-auto py-8">
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -73,10 +66,10 @@ export default function CreateCourse() {
                   {session.user.email}
                 </span>
                 <Link
-                  href="/admin/courses"
+                  href="/admin/dashboard"
                   className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                 >
-                  ← Back to Courses
+                  ← Back to Dashboard
                 </Link>
               </div>
             </div>
@@ -90,6 +83,7 @@ export default function CreateCourse() {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </AdminRoute>
   )
 }

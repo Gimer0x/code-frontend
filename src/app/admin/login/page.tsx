@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { signIn } from 'next-auth/react'
 import Link from 'next/link'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('')
@@ -16,6 +16,14 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false)
   
   const router = useRouter()
+  const { login, isAuthenticated, isAdmin, loading: authLoading } = useAuth()
+
+  // Redirect if already authenticated as admin
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && isAdmin) {
+      router.push('/admin/dashboard')
+    }
+  }, [isAuthenticated, isAdmin, authLoading, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,17 +31,20 @@ export default function AdminLogin() {
     setError('')
 
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      })
+      const result = await login({ email, password })
 
-      if (result?.error) {
-        setError('Invalid email or password')
-      } else if (result?.ok) {
-        // Redirect to admin dashboard
-        router.push('/admin/dashboard')
+      if (result.success) {
+        // Check if user is admin
+        if (result.user?.role === 'ADMIN') {
+          router.push('/admin/dashboard')
+        } else {
+          setError('Admin access required. Please contact an administrator.')
+          // Logout the user since they're not admin
+          const { logout } = useAuth()
+          logout()
+        }
+      } else {
+        setError(result.error || 'Invalid email or password')
       }
     } catch (err) {
       setError('An error occurred. Please try again.')

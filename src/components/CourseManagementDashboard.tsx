@@ -41,7 +41,7 @@ export default function CourseManagementDashboard({ courses, onRefresh }: Course
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const filteredCourses = courses.filter(course => {
-    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch = course.title?.toLowerCase().includes(searchQuery.toLowerCase()) || false
     const matchesStatus = filterStatus === 'all' || course.status === filterStatus
     const matchesLanguage = filterLanguage === 'all' || course.language === filterLanguage
 
@@ -218,10 +218,10 @@ export default function CourseManagementDashboard({ courses, onRefresh }: Course
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {course.title}
+                    {course.title || 'Untitled Course'}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {course.language} • {course.level}
+                    {course.language || 'Unknown'} • {course.level || 'Unknown'}
                   </p>
                 </div>
                 {course.thumbnail && (
@@ -238,27 +238,27 @@ export default function CourseManagementDashboard({ courses, onRefresh }: Course
                 <div>
                   <p className="text-sm text-gray-500">Modules</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    {course.modules.length}
+                    {course.modules?.length || 0}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Students</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    {course._count.progress}
+                    {course._count?.progress || 0}
                   </p>
                 </div>
               </div>
 
               {/* Course Tags */}
               <div className="flex flex-wrap gap-2 mb-4">
-                <span className={`px-2 py-1 text-xs rounded ${getStatusColor(course.status)}`}>
-                  {course.status}
+                <span className={`px-2 py-1 text-xs rounded ${getStatusColor(course.status || 'unknown')}`}>
+                  {course.status || 'Unknown'}
                 </span>
-                <span className={`px-2 py-1 text-xs rounded ${getLevelColor(course.level)}`}>
-                  {course.level}
+                <span className={`px-2 py-1 text-xs rounded ${getLevelColor(course.level || 'unknown')}`}>
+                  {course.level || 'Unknown'}
                 </span>
-                <span className={`px-2 py-1 text-xs rounded ${getAccessColor(course.access)}`}>
-                  {course.access}
+                <span className={`px-2 py-1 text-xs rounded ${getAccessColor(course.access || 'unknown')}`}>
+                  {course.access || 'Unknown'}
                 </span>
               </div>
 

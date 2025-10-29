@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
+import { useAuth } from '@/contexts/AuthContext'
+import AdminRoute from '@/components/AdminRoute'
 import TemplateManager from '@/components/TemplateManager'
 import TemplatePreview from '@/components/TemplatePreview'
 import TemplateCreator from '@/components/TemplateCreator'
@@ -36,7 +37,7 @@ interface Template {
 }
 
 export default function CourseTemplates() {
-  const { data: session, status } = useSession()
+  const { user, loading } = useAuth()
   const router = useRouter()
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -44,12 +45,12 @@ export default function CourseTemplates() {
   const [activeTab, setActiveTab] = useState<'browse' | 'create'>('browse')
 
   useEffect(() => {
-    if (status === 'loading') return
-    if (!session || session.user.role !== 'ADMIN') {
+    if (loading) return
+    if (!user || user.role !== 'ADMIN') {
       router.push('/admin/login')
       return
     }
-  }, [router, session, status])
+  }, [router, user, loading])
 
   const handleTemplateSelect = (template: Template) => {
     setSelectedTemplate(template)
@@ -77,11 +78,8 @@ export default function CourseTemplates() {
     )
   }
 
-  if (!session || session.user.role !== 'ADMIN') {
-    return null
-  }
-
   return (
+    <AdminRoute>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow">
@@ -112,10 +110,10 @@ export default function CourseTemplates() {
                 Create Template
               </button>
               <Link
-                href="/admin/courses"
+                href="/admin/dashboard"
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                Back to Courses
+                Back to Dashboard
               </Link>
             </div>
           </div>
@@ -174,5 +172,6 @@ export default function CourseTemplates() {
         />
       )}
     </div>
+    </AdminRoute>
   )
 }

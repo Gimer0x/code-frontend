@@ -1,10 +1,11 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useAuth } from '@/contexts/AuthContext'
+import AdminRoute from '@/components/AdminRoute'
 import { useState } from 'react'
 
 export default function DebugStripePage() {
-  const { data: session, status } = useSession()
+  const { user, loading } = useAuth()
   const [debugInfo, setDebugInfo] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
@@ -65,7 +66,8 @@ export default function DebugStripePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <AdminRoute>
+      <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-4xl mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">
           Stripe Debug Information
@@ -76,8 +78,8 @@ export default function DebugStripePage() {
           <h2 className="text-xl font-semibold mb-4">Session Status</h2>
           <div className="space-y-2">
             <p><strong>Status:</strong> {status}</p>
-            <p><strong>User:</strong> {session?.user?.email || 'Not logged in'}</p>
-            <p><strong>Name:</strong> {session?.user?.name || 'N/A'}</p>
+            <p><strong>User:</strong> {user?.email || 'Not logged in'}</p>
+            <p><strong>Name:</strong> {user?.name || 'N/A'}</p>
           </div>
         </div>
 
@@ -94,7 +96,7 @@ export default function DebugStripePage() {
             </button>
             <button
               onClick={testCheckoutSession}
-              disabled={loading || !session}
+              disabled={loading || !user}
               className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
             >
               {loading ? 'Testing...' : 'Test Checkout Session'}
@@ -140,6 +142,7 @@ export default function DebugStripePage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </AdminRoute>
   )
 }
