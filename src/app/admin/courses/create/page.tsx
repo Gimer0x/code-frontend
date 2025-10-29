@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import AdminRoute from '@/components/AdminRoute'
 import Link from 'next/link'
-import CourseCreationForm from '@/components/CourseCreationForm'
+import SimpleCourseCreationForm from '@/components/SimpleCourseCreationForm'
 
 interface User {
   id: string
@@ -63,7 +63,7 @@ export default function CreateCourse() {
               </div>
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {session.user.email}
+                  {user?.email}
                 </span>
                 <Link
                   href="/admin/dashboard"
@@ -76,7 +76,7 @@ export default function CreateCourse() {
           </div>
 
           <div className="p-6">
-            <CourseCreationForm
+            <SimpleCourseCreationForm
               onSuccess={handleSuccess}
               onCancel={handleCancel}
             />

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/jwt-auth'
 
 const BACKEND_URL = 'http://localhost:3002'
 
@@ -34,7 +35,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify admin authentication
+    const authResult = await requireAdmin(request)
+    
+    if (!authResult.success) {
+      return NextResponse.json({ 
+        success: false,
+        error: authResult.error || 'Admin access required' 
+      }, { status: 401 })
+    }
+
     const body = await request.json()
+    console.log('Creating course with data:', JSON.stringify(body, null, 2)) // Debug log
     
     // Forward request to backend
     const backendResponse = await fetch(`${BACKEND_URL}/api/courses`, {
