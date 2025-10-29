@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await backendResponse.json()
+    console.log('Backend courses response:', JSON.stringify(data, null, 2)) // Debug log
     return NextResponse.json(data)
 
   } catch (error) {

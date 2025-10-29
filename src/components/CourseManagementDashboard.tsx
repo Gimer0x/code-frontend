@@ -15,8 +15,9 @@ interface Course {
   createdAt: string
   _count: {
     progress: number
+    modules: number
   }
-  modules: Array<{
+  modules?: Array<{
     id: string
     title: string
     lessons: Array<{
@@ -238,7 +239,7 @@ export default function CourseManagementDashboard({ courses, onRefresh }: Course
                 <div>
                   <p className="text-sm text-gray-500">Modules</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    {course.modules?.length || 0}
+                    {course._count?.modules || 0}
                   </p>
                 </div>
                 <div>

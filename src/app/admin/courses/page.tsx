@@ -25,8 +25,9 @@ interface Course {
   createdAt: string
   _count: {
     progress: number
+    modules: number
   }
-  modules: Array<{
+  modules?: Array<{
     id: string
     title: string
     lessons: Array<{

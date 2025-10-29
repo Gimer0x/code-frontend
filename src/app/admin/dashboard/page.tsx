@@ -20,12 +20,16 @@ interface Course {
   level: string
   access: string
   createdAt: string
-  modules: Array<{
+  modules?: Array<{
     id: string
     lessons: Array<{
       id: string
     }>
   }>
+  _count?: {
+    modules: number
+    progress: number
+  }
 }
 
 interface DashboardStats {
@@ -83,12 +87,16 @@ export default function AdminDashboard() {
           const courses: Course[] = data.courses || []
           console.log('Courses data:', courses) // Debug log
           console.log('Course titles:', courses.map(c => ({ id: c.id, title: c.title, createdAt: c.createdAt }))) // Debug log
+          console.log('Course modules structure:', courses.map(c => ({ 
+            title: c.title, 
+            modules: c.modules, 
+            modulesLength: c.modules?.length || 0 
+          }))) // Debug log
           
           const totalCourses = courses.length
           const activeCourses = courses.filter(course => course.status?.toLowerCase() === 'active').length
           const totalModules = courses.reduce((sum, course) => {
-            const modules = course.modules || []
-            return sum + modules.length
+            return sum + (course._count?.modules || 0)
           }, 0)
           const totalLessons = courses.reduce((sum, course) => {
             const modules = course.modules || []
@@ -424,7 +432,7 @@ export default function AdminDashboard() {
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900 dark:text-white">{course.title}</h4>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {course.level} • {course.access} • {course.modules?.length || 0} modules
+                        {course.level} • {course.access} • {course._count?.modules || 0} modules
                       </p>
                     </div>
                     <div className="flex items-center space-x-2">
