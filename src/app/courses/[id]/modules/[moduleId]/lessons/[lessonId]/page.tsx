@@ -63,7 +63,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string; m
   }
 
   // Use ChallengeLessonViewer for challenge lessons, LessonViewer for others
-  if (lesson.type === 'challenge') {
+  if (lesson.type?.toLowerCase() === 'challenge') {
     return <ChallengeLessonViewer lesson={lessonData} courseId={courseId} />
   }
   
