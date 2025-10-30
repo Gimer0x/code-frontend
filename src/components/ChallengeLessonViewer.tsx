@@ -75,6 +75,8 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
   // Chat state
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date }>>([])
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null)
+  const lastSavedCodeRef = useRef<string>('')
+  const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const [chatInput, setChatInput] = useState('')
   const [isLoadingChat, setIsLoadingChat] = useState(false)
   const [hasActiveSubscription, setHasActiveSubscription] = useState<boolean | null>(null)
@@ -267,16 +269,16 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       const contractNameMatch = code.match(/contract\s+(\w+)/)
       const contractName = contractNameMatch ? contractNameMatch[1] : 'CompileContract'
 
-      const response = await fetch(`${backendUrl}/api/compile`, {
+      const response = await fetch('/api/student/compile', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           courseId,
-          code: code.trim(),
-          contractName
+          lessonId: lesson.id,
+          filePath: 'src/Challenge.sol',
+          files: [
+            { path: 'src/Challenge.sol', content: code }
+          ]
         })
       })
       
@@ -297,7 +299,7 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       console.log('=== END DEBUG ===')
       
       // Process the backend response format (backend now provides clean, deduplicated results)
-      const backendResult = result.result || {}
+      const backendResult = result.result || result || {}
       const warnings = backendResult.warnings || []
       const errors = backendResult.errors || []
       
@@ -462,14 +464,16 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
     setIsLoading(true)
     setIsProcessing(true)
     try {
-      // Use the same save approach as the compile function
-      const response = await fetch('/api/challenge/save', {
-        method: 'POST',
+      // Save code to student DB with files[] per spec
+      const response = await fetch('/api/student/code', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          code,
           courseId,
-          lessonId: lesson.id
+          lessonId: lesson.id,
+          files: [
+            { path: 'src/Challenge.sol', content: code }
+          ]
         })
       })
       
@@ -479,9 +483,9 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       setTimeout(() => {
         setOutputContent({
           type: 'save',
-          content: result.success ? {
+          content: response.ok ? {
             message: 'Code saved successfully',
-            savedAt: result.savedAt || new Date().toISOString()
+            savedAt: new Date().toISOString()
           } : {
             message: result.error || 'Failed to save code'
           },
@@ -635,6 +639,36 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
     }
   }, [chatMessages, isLoadingChat])
 
+  // Load student code from DB (via progress) or fall back to initial lesson code
+  useEffect(() => {
+    let cancelled = false
+    const loadStudentCode = async () => {
+      try {
+        const res = await fetch(`/api/student/progress?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(lesson.id)}`)
+        if (!res.ok) return
+        const data = await res.json()
+        const progressArr = data?.data?.progress || []
+        const progressEntry = Array.isArray(progressArr) ? progressArr[0] : null
+        const files = progressEntry?.studentFiles || data?.data?.files || data?.files || []
+        const file = Array.isArray(files) && files.length
+          ? (files.find((f: any) => f.path === 'src/Challenge.sol' || f.fileName === 'src/Challenge.sol') || files[0])
+          : null
+        const content = file?.content || progressEntry?.codeContent || null
+        if (!cancelled && content) {
+          setCode(content)
+          lastSavedCodeRef.current = content
+        } else if (!cancelled && lesson.initialCode) {
+          setCode(lesson.initialCode)
+          lastSavedCodeRef.current = lesson.initialCode
+        }
+      } catch {}
+    }
+    loadStudentCode()
+    return () => { cancelled = true }
+  }, [courseId, lesson.id])
+
+  // Autosave removed per request
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -671,12 +705,14 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
     })
 
     try {
-      const response = await fetch('/api/challenge/initialize', {
+      const response = await fetch('/api/student/workspace/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lessonId: lesson.id,
-          userId: session?.user?.id
+          courseId,
+          exerciseId: lesson.id,
+          mode: 'ensure',
+          useTemplate: true
         })
       })
 
