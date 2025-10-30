@@ -1,5 +1,40 @@
 'use client'
 
+import { useEffect } from 'react'
+import { useAuth } from '@/hooks/useAuth'
+import { googleLoginWithIdToken } from '@/lib/authClient'
+
+declare global {
+  interface Window { google?: any }
+}
+
+export default function GoogleSignInButton() {
+  const { user, loading } = useAuth()
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!window.google) return
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    if (!clientId) return
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (resp: any) => {
+        const idToken = resp?.credential
+        if (!idToken) return
+        await googleLoginWithIdToken(idToken)
+      },
+    })
+    const el = document.getElementById('googleSignInDiv')
+    if (el) window.google.accounts.id.renderButton(el, { theme: 'outline', size: 'large' })
+  }, [])
+
+  if (loading || user) return null
+  return <div id="googleSignInDiv" />
+}
+
+'use client'
+
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 

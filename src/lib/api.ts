@@ -1,5 +1,8 @@
 class DappDojoAPI {
   private baseURL: string;
+  private inFlight: Map<string, Promise<any>> = new Map()
+  private cache: Map<string, { data: any; expiresAt: number }> = new Map()
+  private defaultTtlMs = 10_000 // 10s cache for GETs
 
   constructor(baseURL = 'http://localhost:3002') {
     this.baseURL = baseURL;
@@ -7,6 +10,24 @@ class DappDojoAPI {
 
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${this.baseURL}${endpoint}`;
+    const method = (options.method || 'GET').toUpperCase()
+    const isGet = method === 'GET'
+
+    // Check short-lived cache for GET
+    const cacheKey = `${method}:${url}`
+    if (isGet) {
+      const cached = this.cache.get(cacheKey)
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.data
+      }
+    }
+
+    // In-flight de-duplication
+    const inflightKey = `${method}:${url}:${isGet ? '' : (options.body ? String(options.body) : '')}`
+    if (this.inFlight.has(inflightKey)) {
+      return this.inFlight.get(inflightKey)!
+    }
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -15,18 +36,38 @@ class DappDojoAPI {
       ...options,
     };
 
-    try {
+    const exec = async () => {
       const response = await fetch(url, config);
-      const data = await response.json();
-      
+      // Handle 429 backoff once
+      if (response.status === 429) {
+        const retryAfter = Number(response.headers.get('retry-after'))
+        const delayMs = isNaN(retryAfter) ? 1000 : Math.min(retryAfter * 1000, 3000)
+        await new Promise(res => setTimeout(res, delayMs))
+        const retryResp = await fetch(url, config)
+        const retryData = await retryResp.json().catch(() => ({}))
+        if (!retryResp.ok) {
+          throw new Error(retryData.error || `Request failed with status ${retryResp.status}`)
+        }
+        if (isGet) this.cache.set(cacheKey, { data: retryData, expiresAt: Date.now() + this.defaultTtlMs })
+        return retryData
+      }
+
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.error || `Request failed with status ${response.status}`);
       }
-      
+      if (isGet) this.cache.set(cacheKey, { data, expiresAt: Date.now() + this.defaultTtlMs })
       return data;
-    } catch (error) {
-      throw error;
     }
+
+    const promise = exec()
+      .finally(() => {
+        // Clear in-flight after settle
+        this.inFlight.delete(inflightKey)
+      })
+
+    this.inFlight.set(inflightKey, promise)
+    return promise
   }
 
   // Course methods

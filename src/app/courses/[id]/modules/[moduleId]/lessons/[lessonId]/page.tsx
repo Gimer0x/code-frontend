@@ -70,6 +70,9 @@ export default function LessonPage({ params }: { params: Promise<{ id: string; m
     type: lesson.type,
     contentMarkdown: lesson.contentMarkdown,
     youtubeUrl: lesson.youtubeUrl,
+    initialCode: (lesson as any).initialCode || null,
+    solutionCode: (lesson as any).solutionCode || null,
+    tests: (lesson as any).tests || null,
     order: 1, // Default order
     module: lesson.module || {
       id: moduleId || '',

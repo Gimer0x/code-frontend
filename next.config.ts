@@ -28,8 +28,8 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self' data: blob:",
               // Allow eval only in dev for Next.js
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://ssl.gstatic.com",
-              "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://ssl.gstatic.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://ssl.gstatic.com https://cdn.jsdelivr.net",
+              "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://ssl.gstatic.com https://cdn.jsdelivr.net",
               "style-src 'self' 'unsafe-inline' https:",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data: https:",

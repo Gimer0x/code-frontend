@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { withAuth, createErrorResponse, createSuccessResponse } from '@/lib/auth-utils'
 import { z } from 'zod'
 
@@ -28,65 +27,17 @@ const getTestHistorySchema = z.object({
 export async function POST(request: NextRequest) {
   return withAuth(request, async (session) => {
     try {
-      const body = await request.json()
-      const validatedData = saveTestSchema.parse(body)
-
-      // Get or create student progress
-      const progress = await prisma.studentProgress.upsert({
-        where: {
-          userId_courseId_lessonId: {
-            userId: session.user.id,
-            courseId: validatedData.courseId,
-            lessonId: validatedData.lessonId
-          }
+      const body = await request.text()
+      const backendRes = await fetch('http://localhost:3002/api/student/tests', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.backendAccessToken || ''}`,
+          'Content-Type': 'application/json',
         },
-        update: {
-          updatedAt: new Date()
-        },
-        create: {
-          userId: session.user.id,
-          courseId: validatedData.courseId,
-          lessonId: validatedData.lessonId
-        }
+        body,
       })
-
-      // Save test result
-      const testResult = await prisma.testResult.create({
-        data: {
-          studentProgressId: progress.id,
-          success: validatedData.success,
-          output: validatedData.output,
-          errors: validatedData.errors,
-          testCount: validatedData.testCount,
-          passedCount: validatedData.passedCount,
-          failedCount: validatedData.failedCount,
-          testTime: validatedData.testTime
-        }
-      })
-
-      // Update progress if tests passed
-      if (validatedData.success) {
-        await prisma.studentProgress.update({
-          where: { id: progress.id },
-          data: {
-            lastSavedAt: new Date(),
-            updatedAt: new Date()
-          }
-        })
-      }
-
-      return createSuccessResponse({
-        message: 'Test result saved successfully',
-        testResult: {
-          id: testResult.id,
-          success: testResult.success,
-          testCount: testResult.testCount,
-          passedCount: testResult.passedCount,
-          failedCount: testResult.failedCount,
-          testTime: testResult.testTime,
-          createdAt: testResult.createdAt
-        }
-      })
+      const data = await backendRes.json().catch(() => null)
+      return NextResponse.json(data, { status: backendRes.status })
 
     } catch (error) {
       
@@ -114,97 +65,13 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   return withAuth(request, async (session) => {
     try {
-      const { searchParams } = new URL(request.url)
-      const courseId = searchParams.get('courseId')
-      const lessonId = searchParams.get('lessonId')
-      const limit = parseInt(searchParams.get('limit') || '10')
-
-      if (!courseId) {
-        return createErrorResponse('Course ID is required', 400)
-      }
-
-      // Build where clause
-      const whereClause: any = {
-        studentProgress: {
-          userId: session.user.id,
-          courseId: courseId
-        }
-      }
-
-      if (lessonId) {
-        whereClause.studentProgress.lessonId = lessonId
-      }
-
-      // Get test history
-      const testHistory = await prisma.testResult.findMany({
-        where: whereClause,
-        include: {
-          studentProgress: {
-            include: {
-              lesson: {
-                select: {
-                  id: true,
-                  title: true,
-                  type: true
-                }
-              }
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit
+      const url = new URL(request.url)
+      const params = url.search
+      const backendRes = await fetch(`http://localhost:3002/api/student/tests${params}`, {
+        headers: { Authorization: `Bearer ${session.backendAccessToken || ''}` },
       })
-
-      // Get test statistics
-      const stats = await prisma.testResult.aggregate({
-        where: whereClause,
-        _count: {
-          id: true
-        },
-        _avg: {
-          testTime: true,
-          testCount: true,
-          passedCount: true,
-          failedCount: true
-        }
-      })
-
-      const successStats = await prisma.testResult.groupBy({
-        by: ['success'],
-        where: whereClause,
-        _count: {
-          id: true
-        }
-      })
-
-      const successRate = stats._count.id > 0 
-        ? (successStats.find(s => s.success)?._count.id || 0) / stats._count.id * 100 
-        : 0
-
-      return createSuccessResponse({
-        testHistory: testHistory.map(result => ({
-          id: result.id,
-          success: result.success,
-          output: result.output,
-          errors: result.errors,
-          testCount: result.testCount,
-          passedCount: result.passedCount,
-          failedCount: result.failedCount,
-          testTime: result.testTime,
-          createdAt: result.createdAt,
-          lesson: result.studentProgress.lesson
-        })),
-        statistics: {
-          totalTests: stats._count.id,
-          successRate: Math.round(successRate),
-          averageTestTime: Math.round(stats._avg.testTime || 0),
-          averageTestCount: Math.round(stats._avg.testCount || 0),
-          averagePassedCount: Math.round(stats._avg.passedCount || 0),
-          averageFailedCount: Math.round(stats._avg.failedCount || 0),
-          successfulTests: successStats.find(s => s.success)?._count.id || 0,
-          failedTests: successStats.find(s => !s.success)?._count.id || 0
-        }
-      })
+      const data = await backendRes.json().catch(() => null)
+      return NextResponse.json(data, { status: backendRes.status })
 
     } catch (error) {
       return createErrorResponse('Failed to get test history', 500)
@@ -218,54 +85,17 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   return withAuth(request, async (session) => {
     try {
-      const body = await request.json()
-      const { testId } = body
-
-      if (!testId) {
-        return createErrorResponse('Test ID is required', 400)
-      }
-
-      // Get test result
-      const testResult = await prisma.testResult.findFirst({
-        where: {
-          id: testId,
-          studentProgress: {
-            userId: session.user.id
-          }
+      const body = await request.text()
+      const backendRes = await fetch('http://localhost:3002/api/student/tests', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${session.backendAccessToken || ''}`,
+          'Content-Type': 'application/json',
         },
-        include: {
-          studentProgress: {
-            include: {
-              lesson: {
-                select: {
-                  id: true,
-                  title: true,
-                  type: true
-                }
-              }
-            }
-          }
-        }
+        body,
       })
-
-      if (!testResult) {
-        return createErrorResponse('Test result not found', 404)
-      }
-
-      return createSuccessResponse({
-        testResult: {
-          id: testResult.id,
-          success: testResult.success,
-          output: testResult.output,
-          errors: testResult.errors,
-          testCount: testResult.testCount,
-          passedCount: testResult.passedCount,
-          failedCount: testResult.failedCount,
-          testTime: testResult.testTime,
-          createdAt: testResult.createdAt,
-          lesson: testResult.studentProgress.lesson
-        }
-      })
+      const data = await backendRes.json().catch(() => null)
+      return NextResponse.json(data, { status: backendRes.status })
 
     } catch (error) {
       return createErrorResponse('Failed to get test result', 500)

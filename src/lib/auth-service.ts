@@ -2,6 +2,7 @@ class AuthService {
   private baseURL: string;
   private accessToken: string | null;
   private refreshToken: string | null;
+  private inFlightProfile: Promise<any> | null = null;
 
   constructor() {
     this.baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002';
@@ -148,8 +149,14 @@ class AuthService {
 
   // Get user profile
   async getProfile() {
-    const response = await this.makeRequest('/api/auth/profile');
-    return response.json();
+    if (this.inFlightProfile) return this.inFlightProfile
+    this.inFlightProfile = (async () => {
+      const response = await this.makeRequest('/api/auth/profile');
+      const data = await response.json();
+      this.inFlightProfile = null
+      return data
+    })()
+    return this.inFlightProfile
   }
 
   // Update profile

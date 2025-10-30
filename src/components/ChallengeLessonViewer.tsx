@@ -610,8 +610,9 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       const data = await response.json()
 
       if (response.ok) {
-        // Add AI response to chat
-        const aiMessage = { role: 'assistant' as const, content: data.response, timestamp: new Date() }
+        // Add AI response to chat (support multiple shapes)
+        const assistantText = data.reply || data.response || data.message || data.output?.text || ''
+        const aiMessage = { role: 'assistant' as const, content: assistantText, timestamp: new Date() }
         setChatMessages(prev => [...prev, aiMessage])
       } else {
         // Add error message to chat

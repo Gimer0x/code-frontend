@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { withAuth, createErrorResponse, createSuccessResponse } from '@/lib/auth-utils'
 import { z } from 'zod'
 
@@ -26,60 +25,17 @@ const getCompilationHistorySchema = z.object({
 export async function POST(request: NextRequest) {
   return withAuth(request, async (session) => {
     try {
-      const body = await request.json()
-      const validatedData = saveCompilationSchema.parse(body)
-
-      // Get or create student progress
-      const progress = await prisma.studentProgress.upsert({
-        where: {
-          userId_courseId_lessonId: {
-            userId: session.user.id,
-            courseId: validatedData.courseId,
-            lessonId: validatedData.lessonId
-          }
+      const body = await request.text()
+      const backendRes = await fetch('http://localhost:3002/api/student/compilation', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.backendAccessToken || ''}`,
+          'Content-Type': 'application/json',
         },
-        update: {
-          updatedAt: new Date()
-        },
-        create: {
-          userId: session.user.id,
-          courseId: validatedData.courseId,
-          lessonId: validatedData.lessonId
-        }
+        body,
       })
-
-      // Save compilation result
-      const compilationResult = await prisma.compilationResult.create({
-        data: {
-          studentProgressId: progress.id,
-          success: validatedData.success,
-          output: validatedData.output,
-          errors: validatedData.errors,
-          warnings: validatedData.warnings,
-          compilationTime: validatedData.compilationTime
-        }
-      })
-
-      // Update progress if compilation was successful
-      if (validatedData.success) {
-        await prisma.studentProgress.update({
-          where: { id: progress.id },
-          data: {
-            lastSavedAt: new Date(),
-            updatedAt: new Date()
-          }
-        })
-      }
-
-      return createSuccessResponse({
-        message: 'Compilation result saved successfully',
-        compilationResult: {
-          id: compilationResult.id,
-          success: compilationResult.success,
-          compilationTime: compilationResult.compilationTime,
-          createdAt: compilationResult.createdAt
-        }
-      })
+      const data = await backendRes.json().catch(() => null)
+      return NextResponse.json(data, { status: backendRes.status })
 
     } catch (error) {
       
@@ -107,89 +63,13 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   return withAuth(request, async (session) => {
     try {
-      const { searchParams } = new URL(request.url)
-      const courseId = searchParams.get('courseId')
-      const lessonId = searchParams.get('lessonId')
-      const limit = parseInt(searchParams.get('limit') || '10')
-
-      if (!courseId) {
-        return createErrorResponse('Course ID is required', 400)
-      }
-
-      // Build where clause
-      const whereClause: any = {
-        studentProgress: {
-          userId: session.user.id,
-          courseId: courseId
-        }
-      }
-
-      if (lessonId) {
-        whereClause.studentProgress.lessonId = lessonId
-      }
-
-      // Get compilation history
-      const compilationHistory = await prisma.compilationResult.findMany({
-        where: whereClause,
-        include: {
-          studentProgress: {
-            include: {
-              lesson: {
-                select: {
-                  id: true,
-                  title: true,
-                  type: true
-                }
-              }
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit
+      const url = new URL(request.url)
+      const params = url.search
+      const backendRes = await fetch(`http://localhost:3002/api/student/compilation${params}`, {
+        headers: { Authorization: `Bearer ${session.backendAccessToken || ''}` },
       })
-
-      // Get compilation statistics
-      const stats = await prisma.compilationResult.aggregate({
-        where: whereClause,
-        _count: {
-          id: true
-        },
-        _avg: {
-          compilationTime: true
-        }
-      })
-
-      const successStats = await prisma.compilationResult.groupBy({
-        by: ['success'],
-        where: whereClause,
-        _count: {
-          id: true
-        }
-      })
-
-      const successRate = stats._count.id > 0 
-        ? (successStats.find(s => s.success)?._count.id || 0) / stats._count.id * 100 
-        : 0
-
-      return createSuccessResponse({
-        compilationHistory: compilationHistory.map(result => ({
-          id: result.id,
-          success: result.success,
-          output: result.output,
-          errors: result.errors,
-          warnings: result.warnings,
-          compilationTime: result.compilationTime,
-          createdAt: result.createdAt,
-          lesson: result.studentProgress.lesson
-        })),
-        statistics: {
-          totalCompilations: stats._count.id,
-          successRate: Math.round(successRate),
-          averageCompilationTime: Math.round(stats._avg.compilationTime || 0),
-          successfulCompilations: successStats.find(s => s.success)?._count.id || 0,
-          failedCompilations: successStats.find(s => !s.success)?._count.id || 0
-        }
-      })
+      const data = await backendRes.json().catch(() => null)
+      return NextResponse.json(data, { status: backendRes.status })
 
     } catch (error) {
       return createErrorResponse('Failed to get compilation history', 500)
@@ -203,52 +83,17 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   return withAuth(request, async (session) => {
     try {
-      const body = await request.json()
-      const { compilationId } = body
-
-      if (!compilationId) {
-        return createErrorResponse('Compilation ID is required', 400)
-      }
-
-      // Get compilation result
-      const compilationResult = await prisma.compilationResult.findFirst({
-        where: {
-          id: compilationId,
-          studentProgress: {
-            userId: session.user.id
-          }
+      const body = await request.text()
+      const backendRes = await fetch('http://localhost:3002/api/student/compilation', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${session.backendAccessToken || ''}`,
+          'Content-Type': 'application/json',
         },
-        include: {
-          studentProgress: {
-            include: {
-              lesson: {
-                select: {
-                  id: true,
-                  title: true,
-                  type: true
-                }
-              }
-            }
-          }
-        }
+        body,
       })
-
-      if (!compilationResult) {
-        return createErrorResponse('Compilation result not found', 404)
-      }
-
-      return createSuccessResponse({
-        compilationResult: {
-          id: compilationResult.id,
-          success: compilationResult.success,
-          output: compilationResult.output,
-          errors: compilationResult.errors,
-          warnings: compilationResult.warnings,
-          compilationTime: compilationResult.compilationTime,
-          createdAt: compilationResult.createdAt,
-          lesson: compilationResult.studentProgress.lesson
-        }
-      })
+      const data = await backendRes.json().catch(() => null)
+      return NextResponse.json(data, { status: backendRes.status })
 
     } catch (error) {
       return createErrorResponse('Failed to get compilation result', 500)

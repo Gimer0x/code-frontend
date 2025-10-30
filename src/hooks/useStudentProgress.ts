@@ -84,9 +84,16 @@ export function useStudentProgress({
       if (lessonId) params.append('lessonId', lessonId)
 
       const response = await fetch(`/api/student/progress?${params}`)
+      if (response.status === 404) {
+        // Treat 404 as no progress yet; clear error and set empty state
+        setProgress(null)
+        setStatistics(null)
+        setError(null)
+        return
+      }
       const data = await response.json()
 
-      if (data.success) {
+      if (data?.success) {
         setProgress(data.data.progress[0] || null)
         setStatistics(data.data.statistics)
       } else {

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from 'next/link'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { signOut } from 'next-auth/react'
 
 export default function Navigation() {

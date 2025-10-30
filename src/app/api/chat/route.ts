@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import OpenAI from 'openai'
 
 // Rate limiting storage (in production, use Redis or database)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
@@ -28,139 +26,88 @@ function checkRateLimit(userId: string): boolean {
   return true
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// Proxy to backend AI chat
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const userId = (session as any)?.user?.id || 'anon'
+
+    // Rate limit per user (frontend-side best-effort)
+    if (!checkRateLimit(userId)) {
+      return NextResponse.json({ error: 'Rate limit exceeded. Please wait before sending another message.' }, { status: 429 })
     }
 
-    // Check rate limiting
-    if (!checkRateLimit(session.user.id)) {
-      return NextResponse.json({ 
-        error: 'Rate limit exceeded. Please wait before sending another message.' 
-      }, { status: 429 })
-    }
+    const raw = await request.text()
+    let parsed: any = null
+    try { parsed = raw ? JSON.parse(raw) : null } catch { parsed = null }
 
-    const { message, courseId, lessonId, currentCode, chatHistory } = await request.json()
+    // Normalize to backend expected shape: { messages: [...] }
+    let outboundBody: any = null
+    if (Array.isArray(parsed?.messages)) {
+      // Sanitize roles/content to what backend expects
+      const messages = parsed.messages
+        .filter((m: any) => m && typeof m.content === 'string')
+        .map((m: any) => ({ role: m.role === 'assistant' ? 'assistant' : (m.role === 'system' ? 'system' : 'user'), content: String(m.content) }))
+      outboundBody = { messages }
+    } else {
+      const systemPrompt = 'You are a helpful tutor.'
+      const history = Array.isArray(parsed?.chatHistory) ? parsed.chatHistory : []
+      const userMsg = (parsed?.message || '').toString()
+      const contextBits: string[] = []
+      if (parsed?.courseId) contextBits.push(`Course: ${parsed.courseId}`)
+      if (parsed?.lessonId) contextBits.push(`Lesson: ${parsed.lessonId}`)
+      if (parsed?.currentCode) contextBits.push(`Current Code Provided`)
+      const context = contextBits.length ? `\nContext: ${contextBits.join(' | ')}` : ''
 
-    if (!message || !courseId || !lessonId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-    }
-
-    // Get lesson details for context
-    const lesson = await prisma.lesson.findUnique({
-      where: { id: lessonId },
-      select: {
-        id: true,
-        title: true,
-        contentMarkdown: true,
-        initialCode: true,
-        tests: true,
-        module: {
-          select: {
-            title: true,
-            course: {
-              select: {
-                title: true
-              }
-            }
-          }
-        }
+      const messages = [
+        { role: 'system', content: systemPrompt + context },
+        ...history
+          .filter((m: any) => m && typeof m.content === 'string' && m.content.trim().length > 0)
+          .map((m: any) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
+      ]
+      const combinedUser = userMsg?.trim()?.length ? userMsg : (parsed?.prompt || parsed?.text || '').toString()
+      if (combinedUser && combinedUser.trim().length) {
+        messages.push({ role: 'user', content: combinedUser })
       }
-    })
-
-    if (!lesson) {
-      return NextResponse.json({ error: 'Lesson not found' }, { status: 404 })
+      // If still no user message, create a minimal prompt using any code/context provided
+      if (!messages.some(m => m.role === 'user')) {
+        const fallbackParts: string[] = []
+        if (parsed?.currentCode) fallbackParts.push('Code snippet provided.')
+        if (parsed?.lessonId) fallbackParts.push(`Lesson: ${parsed.lessonId}`)
+        const fallback = fallbackParts.length ? `Please assist. ${fallbackParts.join(' ')}` : 'Please assist.'
+        messages.push({ role: 'user', content: fallback })
+      }
+      outboundBody = { messages }
     }
 
-    // Build context for the AI
-    const context = `
-You are an expert Solidity and blockchain tutor. You're helping a student with a coding challenge.
-
-LESSON CONTEXT:
-- Course: ${lesson.module.course.title}
-- Module: ${lesson.module.title}
-- Lesson: ${lesson.title}
-- Instructions: ${lesson.contentMarkdown}
-
-CURRENT STUDENT CODE:
-\`\`\`solidity
-${currentCode || 'No code written yet'}
-\`\`\`
-
-TEST REQUIREMENTS:
-${lesson.tests || 'No specific test requirements provided'}
-
-INITIAL TEMPLATE:
-\`\`\`solidity
-${lesson.initialCode || 'No initial code provided'}
-\`\`\`
-`
-
-    // Prepare messages for OpenAI
-    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      {
-        role: 'system',
-        content: `You are an expert Solidity and blockchain tutor. You help students learn smart contract development, Solidity programming, and blockchain concepts. 
-
-You should:
-- Provide clear, educational explanations
-- Help debug code issues
-- Explain Solidity concepts and best practices
-- Guide students toward solutions without giving away answers
-- Use markdown formatting for code blocks and explanations
-- Be encouraging and supportive
-
-${context}`
+    const backendRes = await fetch('http://localhost:3002/api/ai/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.backendAccessToken ? { Authorization: `Bearer ${session.backendAccessToken}` } : {}),
       },
-      ...chatHistory.map((msg: any) => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content
-      })),
-      {
-        role: 'user',
-        content: message
-      }
-    ]
-
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages,
-      max_tokens: 1000,
-      temperature: 0.7,
+      body: JSON.stringify(outboundBody),
     })
+    const text = await backendRes.text()
+    let data: any = null
+    try { data = text ? JSON.parse(text) : null } catch { data = { raw: text } }
 
-    const aiResponse = completion.choices[0]?.message?.content || 'Sorry, I could not generate a response.'
+    // Normalize backend variations into a consistent shape
+    const reply = data?.reply
+      || data?.response
+      || data?.message
+      || data?.output?.text
+      || data?.choices?.[0]?.message?.content
+      || ''
 
-    return NextResponse.json({ 
-      response: aiResponse,
-      timestamp: new Date().toISOString()
-    })
-
-  } catch (error) {
-    
-    // Handle specific OpenAI errors
-    if (error instanceof Error) {
-      if (error.message.includes('rate_limit_exceeded')) {
-        return NextResponse.json({ 
-          error: 'OpenAI rate limit exceeded. Please try again later.' 
-        }, { status: 429 })
-      }
-      if (error.message.includes('insufficient_quota')) {
-        return NextResponse.json({ 
-          error: 'OpenAI quota exceeded. Please contact support.' 
-        }, { status: 402 })
-      }
+    if (backendRes.ok) {
+      return NextResponse.json({ success: true, reply, original: data }, { status: 200 })
     }
 
-    return NextResponse.json({ 
-      error: 'Failed to process your message. Please try again.' 
-    }, { status: 500 })
+    // On error, pass through backend payload and status
+    return NextResponse.json(data ?? { error: 'Chat backend error' }, { status: backendRes.status })
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to process your message. Please try again.' }, { status: 500 })
   }
 }
