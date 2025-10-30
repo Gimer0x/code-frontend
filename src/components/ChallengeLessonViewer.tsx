@@ -74,6 +74,7 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
   
   // Chat state
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date }>>([])
+  const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null)
   const [chatInput, setChatInput] = useState('')
   const [isLoadingChat, setIsLoadingChat] = useState(false)
   const [hasActiveSubscription, setHasActiveSubscription] = useState<boolean | null>(null)
@@ -1595,11 +1596,32 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                     ) : (
                       chatMessages.map((message, index) => (
                         <div key={index} className="w-full mb-4">
-                          <div className={`w-full p-4 rounded-lg ${
+                          <div className={`w-full p-4 rounded-lg relative ${
                             message.role === 'user' 
                               ? 'bg-yellow-500 text-black' 
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
                           }`}>
+                            {message.role === 'assistant' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(message.content || '')
+                                      setCopiedMessageIndex(index)
+                                      setTimeout(() => setCopiedMessageIndex(null), 1200)
+                                    } catch {}
+                                  }}
+                                  className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-200 rounded-md transition-opacity opacity-60 hover:opacity-100"
+                                  title="Copy answer"
+                                >
+                                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                </button>
+                                {copiedMessageIndex === index && (
+                                  <span className="absolute top-2 right-8 text-xs text-green-400">Copied!</span>
+                                )}
+                              </>
+                            )}
                             <div className="text-sm leading-relaxed">
                               {message.role === 'assistant' ? (
                                 <ReactMarkdown
