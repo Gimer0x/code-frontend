@@ -4,10 +4,11 @@ const BACKEND_URL = 'http://localhost:3002'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  context: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const imagePath = params.path.join('/')
+    const { path } = await context.params
+    const imagePath = Array.isArray(path) ? path.join('/') : path
     const imageUrl = `${BACKEND_URL}/${imagePath}`
     
     const response = await fetch(imageUrl)

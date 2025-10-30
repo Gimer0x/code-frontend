@@ -112,6 +112,10 @@ export default function SimpleCourseCreationForm({
         },
         body: JSON.stringify({
           ...formData,
+          // Send imagePath to backend if using proxy URL
+          thumbnail: formData.thumbnail && formData.thumbnail.startsWith('/api/images/')
+            ? formData.thumbnail.replace('/api/images/', '')
+            : formData.thumbnail,
           creatorId: user.id
         })
       })

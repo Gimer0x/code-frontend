@@ -415,7 +415,9 @@ export default function EditCourse() {
           level: courseLevel.toUpperCase(),
           access: courseAccess.toUpperCase(),
           status: courseStatus.toUpperCase(),
-          thumbnail: courseThumbnail,
+          thumbnail: courseThumbnail && courseThumbnail.startsWith('/api/images/')
+            ? courseThumbnail.replace('/api/images/', '')
+            : courseThumbnail,
           modules: modulesUpdate
         }),
       })
@@ -478,7 +480,9 @@ export default function EditCourse() {
           level: courseLevel.toUpperCase(),
           access: courseAccess.toUpperCase(),
           status: courseStatus.toUpperCase(),
-          thumbnail: courseThumbnail,
+          thumbnail: courseThumbnail && courseThumbnail.startsWith('/api/images/')
+            ? courseThumbnail.replace('/api/images/', '')
+            : courseThumbnail,
           modules: modulesUpdate
         }),
       })
@@ -536,7 +540,13 @@ export default function EditCourse() {
         setCourseLevel(courseData.level.toLowerCase())
         setCourseAccess(courseData.access.toLowerCase())
         setCourseStatus(courseData.status.toLowerCase())
-        setCourseThumbnail(courseData.thumbnail || null)
+        // Normalize thumbnail to same-origin proxy so it doesn't resolve relative to the route
+        const thumb = courseData.thumbnail || null
+        setCourseThumbnail(
+          thumb
+            ? (thumb.startsWith('/api/images/') ? thumb : `/api/images/${thumb.replace(/^\//, '')}`)
+            : null
+        )
         
         // Process modules and lessons to ensure proper format
         const processedModules = (courseData.modules || []).map((module: any) => ({
@@ -714,71 +724,14 @@ export default function EditCourse() {
     }
     
     try {
-      // Convert file to base64
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        
-        // Set up timeout for FileReader
-        const readerTimeout = setTimeout(() => {
-          reader.abort()
-          reject(new Error('File reading timed out'))
-        }, 10000)
-        
-        reader.onload = () => {
-          clearTimeout(readerTimeout)
-          const result = reader.result as string
-          if (!result || result.length === 0) {
-            reject(new Error('File reading resulted in empty data'))
-            return
-          }
-          resolve(result)
-        }
-        
-        reader.onerror = (error) => {
-          clearTimeout(readerTimeout)
-          reject(new Error(`Failed to read file: ${error.type || 'Unknown error'}`))
-        }
-        
-        reader.onabort = () => {
-          clearTimeout(readerTimeout)
-          reject(new Error('File reading was aborted'))
-        }
-        
-        reader.readAsDataURL(file)
+      // Upload using public endpoint with key 'thumbnail'
+      const formData = new FormData()
+      formData.append('thumbnail', file)
+
+      const response = await fetch('/api/upload/course-thumbnail', {
+        method: 'POST',
+        body: formData,
       })
-      
-      // Add timeout to prevent hanging
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
-
-      // Try base64 upload first, fallback to FormData if needed
-      let response: Response
-      try {
-        response = await fetch('/api/upload/base64', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            fileName: file.name,
-            fileType: file.type,
-            fileData: base64
-          }),
-          signal: controller.signal
-        })
-      } catch (base64Error) {
-        // Fallback to FormData upload
-        const formData = new FormData()
-        formData.append('file', file)
-        
-        response = await fetch('/api/upload/simple', {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal
-        })
-      }
-
-      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -789,7 +742,8 @@ export default function EditCourse() {
       const data = await response.json()
 
       if (data.success) {
-        setCourseThumbnail(data.url)
+        const previewUrl = data.imagePath ? `/api/images/${data.imagePath}` : (data.url || '')
+        setCourseThumbnail(previewUrl)
         setHasUnsavedChanges(true)
         setThumbnailError(null)
       } else {
@@ -874,7 +828,9 @@ export default function EditCourse() {
         level: courseLevel.toUpperCase(),
         access: courseAccess.toUpperCase(),
         status: courseStatus.toUpperCase(),
-        thumbnail: courseThumbnail,
+        thumbnail: courseThumbnail && courseThumbnail.startsWith('/api/images/')
+          ? courseThumbnail.replace('/api/images/', '')
+          : courseThumbnail,
         modules: modulesUpdate
       }
       

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { getSession } from 'next-auth/react'
 import { authService } from '@/lib/auth-service'
 
 interface User {
@@ -23,6 +24,7 @@ interface AuthContextType {
   loading: boolean
   login: (credentials: { email: string; password: string }) => Promise<{ success: boolean; message?: string; error?: string }>
   register: (userData: { email: string; password: string; name: string; role?: 'ADMIN' | 'STUDENT' }) => Promise<{ success: boolean; message?: string; error?: string }>
+  loginWithGoogle: (idToken: string) => Promise<{ success: boolean; message?: string; error?: string }>
   logout: () => void
   isAuthenticated: boolean
   isAdmin: boolean
@@ -36,25 +38,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check if user is already logged in
-    if (authService.isAuthenticated()) {
-      authService.getProfile()
-        .then(data => {
+    // Bootstrap auth state from existing backend tokens or from NextAuth session (Google OAuth)
+    async function bootstrap() {
+      // Case 1: tokens already exist locally
+      if (authService.isAuthenticated()) {
+        try {
+          const data = await authService.getProfile()
           if (data.success) {
             setUser(data.user)
-          } else {
-            authService.logout()
-            setUser(null)
+            setLoading(false)
+            return
           }
-        })
-        .catch(() => {
-          authService.logout()
-          setUser(null)
-        })
-        .finally(() => setLoading(false))
-    } else {
+        } catch {}
+        authService.logout()
+      }
+
+      // Case 2: user just logged in via NextAuth Google, adopt backend tokens from session
+      try {
+        const session: any = await getSession()
+        if (session?.backendAccessToken && session?.backendRefreshToken) {
+          authService.setTokens(session.backendAccessToken, session.backendRefreshToken)
+          const data = await authService.getProfile()
+          if (data.success) {
+            setUser(data.user)
+          }
+        }
+      } catch {}
       setLoading(false)
     }
+
+    bootstrap()
   }, [])
 
   const login = async (credentials: { email: string; password: string }) => {
@@ -81,9 +94,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
+  const loginWithGoogle = async (idToken: string) => {
+    try {
+      const result = await authService.googleLogin(idToken)
+      if (result.success) {
+        setUser(result.user)
+      }
+      return result
+    } catch (error) {
+      return { success: false, error: 'Google login failed. Please try again.' }
+    }
+  }
+
   const logout = () => {
     authService.logout()
     setUser(null)
+    if (typeof window !== 'undefined' && (window as any).google?.accounts?.id) {
+      try {
+        (window as any).google.accounts.id.disableAutoSelect()
+      } catch {}
+    }
   }
 
   const refreshUser = async () => {
@@ -106,6 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     loading,
     login,
     register,
+    loginWithGoogle,
     logout,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'ADMIN',

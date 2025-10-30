@@ -227,7 +227,9 @@ export default function CourseManagementDashboard({ courses, onRefresh }: Course
                 </div>
                 {course.thumbnail && (
                   <img
-                    src={course.thumbnail}
+                    src={course.thumbnail.startsWith('/api/images/')
+                      ? course.thumbnail
+                      : `/api/images/${course.thumbnail.replace(/^\//, '')}`}
                     alt={course.title}
                     className="w-16 h-16 rounded-lg object-cover"
                   />

@@ -131,6 +131,21 @@ class AuthService {
     }
   }
 
+  // Login with Google ID token -> exchange with backend
+  async googleLogin(idToken: string) {
+    const response = await fetch(`${this.baseURL}/api/user-auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken })
+    })
+
+    const data = await response.json()
+    if (data.success) {
+      this.setTokens(data.accessToken, data.refreshToken)
+    }
+    return data
+  }
+
   // Get user profile
   async getProfile() {
     const response = await this.makeRequest('/api/auth/profile');

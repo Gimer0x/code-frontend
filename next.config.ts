@@ -15,20 +15,33 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Temporarily disable CSP for development
-  // async headers() {
-  //   return [
-  //     {
-  //       source: '/(.*)',
-  //       headers: [
-  //         {
-  //           key: 'Content-Security-Policy',
-  //           value: "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; style-src 'self' 'unsafe-inline' https: data: blob:; worker-src 'self' blob: data: 'unsafe-eval' 'unsafe-inline' https:; connect-src 'self' ws: wss: http: https:; img-src 'self' data: blob: https:; font-src 'self' data: https:;"
-  //         }
-  //       ]
-  //     }
-  //   ];
-  // }
+  // Development CSP: allow eval for Next.js source maps and allow Google Identity scripts
+  async headers() {
+    const isDev = process.env.NODE_ENV !== 'production'
+    if (!isDev) return []
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self' data: blob:",
+              // Allow eval only in dev for Next.js
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://ssl.gstatic.com",
+              "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://ssl.gstatic.com",
+              "style-src 'self' 'unsafe-inline' https:",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data: https:",
+              "connect-src 'self' ws: wss: http: https:",
+              "frame-src https://accounts.google.com",
+              "worker-src 'self' blob: data:"
+            ].join('; ')
+          }
+        ]
+      }
+    ]
+  }
 };
 
 export default nextConfig;
