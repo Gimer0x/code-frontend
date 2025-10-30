@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import Navigation from '@/components/Navigation'
 import { useCourses } from '@/hooks/useCourses'
 import { api } from '@/lib/api'
 
@@ -34,8 +33,6 @@ export default function Home() {
   }))
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
-      <Navigation />
-
       {/* Main Content */}
       <main>
         {/* Hero Section */}
