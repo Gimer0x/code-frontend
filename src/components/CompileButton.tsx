@@ -133,11 +133,11 @@ export function CompilationResultDisplay({ result, className }: { result: Compil
               <div className="text-sm text-red-700 dark:text-red-300 mb-2">
                 {error.message}
               </div>
-              {(error.sourceLocation || (error.line && error.file)) && (
+              {(error.sourceLocation || (error.line && error.line > 0 && error.file)) ? (
                 <div className="text-xs text-red-600 dark:text-red-400 mb-2">
-                  📍 {error.sourceLocation?.file || error.file}:{error.sourceLocation?.start?.line || error.line}:{error.sourceLocation?.start?.column || error.column}
+                  📍 {error.sourceLocation?.file || error.file}:{error.sourceLocation?.start?.line || error.line}{((error.sourceLocation?.start?.column ?? error.column ?? 0) > 0 ? `:${error.sourceLocation?.start?.column ?? error.column ?? 0}` : '')}
                 </div>
-              )}
+              ) : null}
               {error.suggestions && error.suggestions.length > 0 && (
                 <div className="mt-2">
                   <div className="text-xs text-red-700 dark:text-red-300 font-medium mb-1">💡 Suggestions:</div>
