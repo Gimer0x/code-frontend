@@ -553,23 +553,54 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
     setShowResetConfirm(false)
     
     try {
-      const response = await fetch('/api/challenge/reset', {
+      const response = await fetch('/api/student/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           courseId,
-          lessonId: lesson.id
+          lessonId: lesson.id,
+          exerciseId: lesson.id // Use lessonId as exerciseId as well
         })
       })
       
       const result = await response.json()
       
-      if (response.ok) {
-        // Reset successful - load the initial code
-        setCode(lesson.initialCode || getDefaultSolidityTemplate())
+      if (response.ok && result.success) {
+        // Clear any local editor state/cache
+        lastSavedCodeRef.current = ''
+        
+        // Update editor with response.initialCode or response.files
+        let resetCode = ''
+        
+        if (result.initialCode) {
+          // If initialCode is provided directly
+          resetCode = result.initialCode
+        } else if (result.files && Array.isArray(result.files) && result.files.length > 0) {
+          // If files array is provided, find the main contract file
+          const mainFile = result.files.find((f: any) => 
+            f.path === 'src/Challenge.sol' || 
+            f.path?.endsWith('.sol') || 
+            f.fileName === 'src/Challenge.sol'
+          ) || result.files[0]
+          
+          resetCode = mainFile.content || mainFile.code || ''
+        } else {
+          // Fallback to lesson initial code or default template
+          resetCode = lesson.initialCode || getDefaultSolidityTemplate()
+        }
+        
+        // Set the reset code
+        setCode(resetCode)
+        lastSavedCodeRef.current = resetCode
+        setLoadedFromDB(false) // Mark as not loaded from DB since we reset
+        
+        // Show success message
         setOutputContent({
           type: 'save',
-          content: { message: result.message },
+          content: { 
+            message: result.message || 'Code reset successfully',
+            savedAt: new Date().toISOString()
+          },
           timestamp: new Date()
         })
       } else {
@@ -582,7 +613,9 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
     } catch (error) {
       setOutputContent({
         type: 'error',
-        content: { message: 'Failed to reset code' },
+        content: { 
+          message: error instanceof Error ? error.message : 'Failed to reset code' 
+        },
         timestamp: new Date()
       })
     } finally {
@@ -1433,12 +1466,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                               ))}
                             </div>
                           )}
-                          
-                          {/* Debug: Show raw result structure */}
-                          <div className="mb-4 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
-                            <div className="font-bold">Debug - Raw Result:</div>
-                            <pre className="whitespace-pre-wrap">{JSON.stringify(outputContent.content, null, 2)}</pre>
-                          </div>
                           
                           {(outputContent.content.warnings?.length > 0 || outputContent.content.result?.warnings?.length > 0) && (
                             <div className="space-y-2">
