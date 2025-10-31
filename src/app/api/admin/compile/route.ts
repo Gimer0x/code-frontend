@@ -79,8 +79,23 @@ evm_version = "london"
             }
             
             // Check if it's a warning (can appear on both success and failure)
+            // Filter out generic/status messages that aren't actual warnings
             if (trimmed.toLowerCase().includes('warning')) {
-              warnings.push(trimmed)
+              const genericWarnings = [
+                'compiler run successful',
+                'compilation successful',
+                'compiler run failed',
+                'compilation failed'
+              ]
+              
+              const isGeneric = genericWarnings.some(gen => 
+                trimmed.toLowerCase().includes(gen.toLowerCase())
+              )
+              
+              // Only add if it's a real warning, not a status message
+              if (!isGeneric) {
+                warnings.push(trimmed)
+              }
             }
           }
           

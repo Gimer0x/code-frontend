@@ -164,11 +164,11 @@ export function CompilationResultDisplay({ result, className }: { result: Compil
             <div key={index} className="ml-4 mb-2 p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded">
               <div className="font-medium text-yellow-800 dark:text-yellow-200">{warning.type}:</div>
               <div className="text-sm">{warning.message}</div>
-              {(warning.sourceLocation || (warning.line && warning.file)) && (
+              {(warning.sourceLocation || (warning.line && warning.line > 0 && warning.file)) ? (
                 <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                  📍 {warning.sourceLocation?.file || warning.file}:{warning.sourceLocation?.start?.line || warning.line}:{warning.sourceLocation?.start?.column || warning.column}
+                  📍 {warning.sourceLocation?.file || warning.file}:{warning.sourceLocation?.start?.line || warning.line}{((warning.sourceLocation?.start?.column ?? warning.column ?? 0) > 0 ? `:${warning.sourceLocation?.start?.column ?? warning.column ?? 0}` : '')}
                 </div>
-              )}
+              ) : null}
             </div>
           ))}
         </div>
@@ -372,19 +372,35 @@ export default function CompileButton({
           const standaloneWarning = trimmed.match(/warning[^:]*:\s*(.+)$/i)
           if (standaloneWarning && !trimmed.match(/^\d+\s*\|/) && !trimmed.match(/^\s*\||^\s*\^/)) {
             const message = standaloneWarning[1].trim()
-            const warningKey = `warning:${message}`
             
-            if (!seenWarnings.has(warningKey)) {
-              warnings.push({
-                type: 'compilation_warning',
-                severity: 'warning',
-                message: message,
-                line: 0,
-                column: 0,
-                file: contractName + '.sol',
-                code: 'UNKNOWN'
-              })
-              seenWarnings.add(warningKey)
+            // Filter out generic/status warning messages
+            const genericWarnings = [
+              'compiler run successful',
+              'compilation successful',
+              'compiler run failed',
+              'compilation failed',
+              'with warnings'
+            ]
+            
+            const isGeneric = genericWarnings.some(gen => 
+              message.toLowerCase().includes(gen.toLowerCase())
+            )
+            
+            if (!isGeneric && message) {
+              const warningKey = `warning:${message}`
+              
+              if (!seenWarnings.has(warningKey)) {
+                warnings.push({
+                  type: 'compilation_warning',
+                  severity: 'warning',
+                  message: message,
+                  line: 0,
+                  column: 0,
+                  file: contractName + '.sol',
+                  code: 'UNKNOWN'
+                })
+                seenWarnings.add(warningKey)
+              }
             }
             continue
           }
@@ -485,19 +501,35 @@ export default function CompileButton({
                 // Warning without location - extract message
                 const messageMatch = trimmed.match(/warning[^:]*:\s*(.+)$/i)
                 const warningMessage = messageMatch ? messageMatch[1].trim() : trimmed
-                const warningKey = `warning:${warningMessage}`
                 
-                if (!seenWarnings.has(warningKey)) {
-                  warnings.push({
-                    type: 'compilation_warning',
-                    severity: 'warning',
-                    message: warningMessage,
-                    line: 0,
-                    column: 0,
-                    file: contractName + '.sol',
-                    code: 'UNKNOWN'
-                  })
-                  seenWarnings.add(warningKey)
+                // Filter out generic/status warning messages
+                const genericWarnings = [
+                  'compiler run successful',
+                  'compilation successful',
+                  'compiler run failed',
+                  'compilation failed',
+                  'with warnings'
+                ]
+                
+                const isGeneric = genericWarnings.some(gen => 
+                  warningMessage.toLowerCase().includes(gen.toLowerCase())
+                )
+                
+                if (!isGeneric && warningMessage) {
+                  const warningKey = `warning:${warningMessage}`
+                  
+                  if (!seenWarnings.has(warningKey)) {
+                    warnings.push({
+                      type: 'compilation_warning',
+                      severity: 'warning',
+                      message: warningMessage,
+                      line: 0,
+                      column: 0,
+                      file: contractName + '.sol',
+                      code: 'UNKNOWN'
+                    })
+                    seenWarnings.add(warningKey)
+                  }
                 }
               }
             }
@@ -566,16 +598,34 @@ export default function CompileButton({
                   seenErrors.add(errorKey)
                 }
               } else if (trimmed.toLowerCase().includes('warning')) {
-                // Warning without location
-                warnings.push({
-                  type: 'compilation_warning',
-                  severity: 'warning',
-                  message: trimmed,
-                  line: 0,
-                  column: 0,
-                  file: contractName + '.sol',
-                  code: 'UNKNOWN'
-                })
+                // Filter out generic/status warning messages
+                const genericWarnings = [
+                  'compiler run successful',
+                  'compilation successful',
+                  'compiler run failed',
+                  'compilation failed',
+                  'with warnings'
+                ]
+                
+                const isGeneric = genericWarnings.some(gen => 
+                  trimmed.toLowerCase().includes(gen.toLowerCase())
+                )
+                
+                if (!isGeneric) {
+                  const warningKey = `warning:${trimmed}`
+                  if (!seenWarnings.has(warningKey)) {
+                    warnings.push({
+                      type: 'compilation_warning',
+                      severity: 'warning',
+                      message: trimmed,
+                      line: 0,
+                      column: 0,
+                      file: contractName + '.sol',
+                      code: 'UNKNOWN'
+                    })
+                    seenWarnings.add(warningKey)
+                  }
+                }
               } else {
                 // Error without location
                 errors.push({
@@ -592,6 +642,18 @@ export default function CompileButton({
           }
         }
       }
+      
+      // Final deduplication for warnings - remove duplicates based on message
+      const uniqueWarnings: any[] = []
+      const seenWarningMessages = new Set<string>()
+      for (const warning of warnings) {
+        const messageKey = `${warning.file || ''}:${warning.line || 0}:${warning.message || ''}`
+        if (!seenWarningMessages.has(messageKey)) {
+          uniqueWarnings.push(warning)
+          seenWarningMessages.add(messageKey)
+        }
+      }
+      warnings = uniqueWarnings
       
       console.log('Processing errors:', errors.length, 'warnings:', warnings.length)
       
