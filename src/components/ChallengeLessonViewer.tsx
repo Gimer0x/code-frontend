@@ -285,13 +285,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
 
       const result = await compileResponse.json()
 
-      // Debug: Log the result structure to help troubleshoot
-      console.log('=== COMPILATION RESPONSE ===')
-      console.log('Full response:', result)
-      console.log('result.success:', result.success)
-      console.log('result.result:', result.result)
-      console.log('=== END RESPONSE ===')
-
       // Extract contract name from code for fallback
       const contractNameMatch = code.match(/contract\s+(\w+)/)
       const contractName = contractNameMatch ? contractNameMatch[1] : 'Challenge'
@@ -305,12 +298,47 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
         try {
           // Parse the JSON string from stdout
           parsedOutput = JSON.parse(result.result.stdout)
-          console.log('Parsed stdout:', parsedOutput)
           
           // Extract errors and warnings from parsed output
+          // Note: Warnings might be in errors array with severity: 'warning'
+          const allItems = parsedOutput.errors || []
+          
+          // Separate warnings from actual errors
+          const actualErrors: any[] = []
+          const actualWarnings: any[] = []
+          
+          // First, collect warnings from errors array
+          allItems.forEach((item: any) => {
+            const severity = (item.severity || item.type || '').toLowerCase()
+            const isWarning = severity.includes('warning') || item.type === 'Warning' || item.type === 'warning'
+            
+            if (isWarning) {
+              actualWarnings.push(item)
+            } else {
+              actualErrors.push(item)
+            }
+          })
+          
+          // Then, add warnings from dedicated warnings array (avoid duplicates)
+          const existingWarningKeys = new Set(
+            actualWarnings.map((w: any) => 
+              `${w.sourceLocation?.file || w.file || ''}:${w.sourceLocation?.start?.line || w.line || ''}:${w.message || ''}`
+            )
+          )
+          
+          if (parsedOutput.warnings && Array.isArray(parsedOutput.warnings)) {
+            parsedOutput.warnings.forEach((warning: any) => {
+              const warningKey = `${warning.sourceLocation?.file || warning.file || ''}:${warning.sourceLocation?.start?.line || warning.line || ''}:${warning.message || ''}`
+              if (!existingWarningKeys.has(warningKey)) {
+                actualWarnings.push(warning)
+                existingWarningKeys.add(warningKey)
+              }
+            })
+          }
+          
           backendResult = {
-            errors: parsedOutput.errors || [],
-            warnings: parsedOutput.warnings || [],
+            errors: actualErrors,  // Only actual errors, no warnings
+            warnings: actualWarnings,  // Only warnings, no errors
             output: result.result.stdout,
             ...parsedOutput
           }
@@ -325,10 +353,37 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       }
 
       const compilationSuccess = result.success !== undefined ? result.success : (backendResult.success !== undefined ? backendResult.success : false)
-      const warnings = backendResult.warnings || result.warnings || []
-      const errors = backendResult.errors || result.errors || []
-
-      console.log('Extracted - errors:', errors.length, 'warnings:', warnings.length)
+      
+      // Extract warnings and errors - ensure warnings never appear in errors
+      let warnings: any[] = backendResult.warnings || result.warnings || []
+      let errors: any[] = []
+      
+      // Process all items from errors array - separate warnings from errors
+      const allErrorItems = backendResult.errors || result.errors || []
+      const warningKeys = new Set(
+        warnings.map((w: any) => 
+          `${w.sourceLocation?.file || w.file || ''}:${w.sourceLocation?.start?.line || w.line || ''}:${w.message || ''}`
+        )
+      )
+      
+      allErrorItems.forEach((item: any) => {
+        // Check if this is a warning
+        const severity = (item.severity || item.type || '').toLowerCase()
+        const isWarning = severity.includes('warning') || item.type === 'Warning' || item.type === 'warning'
+        
+        if (isWarning) {
+          // It's a warning - add to warnings if not duplicate
+          const warningKey = `${item.sourceLocation?.file || item.file || ''}:${item.sourceLocation?.start?.line || item.line || ''}:${item.message || ''}`
+          if (!warningKeys.has(warningKey)) {
+            warnings.push(item)
+            warningKeys.add(warningKey)
+          }
+        } else {
+          // It's an actual error - add to errors
+          errors.push(item)
+        }
+      })
+      
 
       // Process warnings to ensure consistent structure
       const processedWarnings = warnings.map((warning: any) => {
@@ -418,39 +473,24 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
         }
       })
 
-      console.log('Processed - errors:', processedErrors.length, 'warnings:', processedWarnings.length)
-      if (processedErrors.length > 0) {
-        console.log('Processed errors:', processedErrors)
-        // Log first error details for debugging
-        const firstError = processedErrors[0]
-        console.log('First error details:', {
-          message: firstError.message,
-          line: firstError.line,
-          column: firstError.column,
-          file: firstError.file,
-          code: firstError.code,
-          sourceLocation: firstError.sourceLocation,
-          full: firstError
-        })
-      }
-      if (processedWarnings.length > 0) {
-        console.log('Processed warnings:', processedWarnings)
-      }
-
       // Create the result in the expected format
       // Determine success: if no errors, consider it successful (even with warnings)
       const isSuccessful = compilationSuccess && processedErrors.length === 0
       
+      // Ensure we always show warnings count if there are any
+      const hasWarnings = processedWarnings.length > 0
+      const message = isSuccessful
+        ? (hasWarnings 
+            ? `Compilation completed with ${processedWarnings.length} warning(s)` 
+            : 'Compilation completed')
+        : `Compilation failed with ${processedErrors.length} error(s)`
+      
       const compilationResult = {
         success: isSuccessful,
-        message: isSuccessful
-          ? (processedWarnings.length > 0 
-              ? `Compilation completed with ${processedWarnings.length} warning(s)` 
-              : 'Compilation completed')
-          : `Compilation failed with ${processedErrors.length} error(s)`,
+        message: message,
         output: backendResult.output || result.output,
         errors: processedErrors,
-        warnings: processedWarnings,
+        warnings: processedWarnings, // Always include warnings array, even if empty
         contractName: result.contractName || backendResult.contractName || contractName,
         compilationTime: backendResult.compilationTime || result.compilationTime,
         artifacts: backendResult.artifacts || result.artifacts || [],
@@ -459,12 +499,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
         timestamp: result.timestamp || new Date().toISOString()
       }
 
-      console.log('=== PROCESSED COMPILATION RESULT ===')
-      console.log('compilationResult:', compilationResult)
-      console.log('success:', compilationResult.success)
-      console.log('errors:', compilationResult.errors.length)
-      console.log('warnings:', compilationResult.warnings.length)
-      console.log('=== END PROCESSED ===')
 
       // Update last saved code reference since we just saved
       lastSavedCodeRef.current = code
@@ -1500,17 +1534,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                             // Consider successful if success is explicitly true, or if success is not false and there are no errors
                             const isSuccess = content.success === true || (content.success !== false && !hasErrors)
                             
-                            console.log('Rendering compile result:', {
-                              hasErrors,
-                              hasWarnings,
-                              isSuccess,
-                              success: content.success,
-                              errorsCount: content.errors?.length || 0,
-                              warningsCount: content.warnings?.length || 0,
-                              message: content.message,
-                              fullContent: content
-                            })
-                            
                             if (isSuccess) {
                               return (
                             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 rounded-lg">
@@ -1521,6 +1544,11 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                                   <span className="font-semibold text-green-800 dark:text-green-200">
                                     Compilation Successful
                                   </span>
+                                  {hasWarnings && (
+                                    <span className="text-xs text-yellow-700 dark:text-yellow-300 font-medium">
+                                      ({content.warnings.length} warning{content.warnings.length !== 1 ? 's' : ''})
+                                    </span>
+                                  )}
                                 </div>
                                 {outputContent.content.compilationTime && (
                                   <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -1567,7 +1595,11 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                             } else if (hasErrors) {
                               return (
                                 <div className="space-y-2">
-                                  {content.errors.map((error: any, index: number) => {
+                                  {content.errors.filter((error: any) => {
+                                    // Filter out warnings from errors display
+                                    const severity = (error.severity || error.type || '').toLowerCase()
+                                    return !severity.includes('warning') && error.type !== 'Warning'
+                                  }).map((error: any, index: number) => {
                                     const hasLineInfo = error.line !== undefined && error.line !== null
                                     const lineNumber = error.line || 0
                                     const columnNumber = error.column || 0
@@ -1671,33 +1703,107 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                           })()}
                           
                           {/* Always show warnings if they exist */}
-                          {(outputContent.content.warnings?.length > 0 || outputContent.content.result?.warnings?.length > 0) && (
-                            <div className="space-y-2">
-                              <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
-                                ⚠️ Warnings ({(outputContent.content.warnings || outputContent.content.result?.warnings || []).length})
-                              </div>
-                              {(outputContent.content.warnings || outputContent.content.result?.warnings || []).map((warning: any, index: number) => (
-                                <div key={index} className="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 p-3 rounded-lg">
-                                  <div className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
-                                    Warning {index + 1}: {warning.message}
-                                  </div>
-                                  {(warning.line > 0 || warning.sourceLocation?.start?.line) && (
-                                    <div className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                                      Line {warning.line || warning.sourceLocation?.start?.line}, Column {warning.column || warning.sourceLocation?.start?.column}
+                          {(() => {
+                            const warningsArray = outputContent.content.warnings || outputContent.content.result?.warnings || []
+                            return Array.isArray(warningsArray) && warningsArray.length > 0
+                          })() && (
+                            <div className="space-y-2 mt-4">
+                              {(() => {
+                                const warnings = outputContent.content.warnings || outputContent.content.result?.warnings || []
+                                const warningsArray = Array.isArray(warnings) ? warnings : []
+                                
+                                return (
+                                  <>
+                                    {/* Warning Header - Yellow icon, White text */}
+                                    <div className="text-sm font-medium mb-3 text-white">
+                                      <span style={{ color: '#FFD700' }}>⚠️</span> Warnings ({warningsArray.length}):
                                     </div>
-                                  )}
+                                    {warningsArray.map((warning: any, index: number) => {
+                                const hasLineInfo = warning.line !== undefined && warning.line !== null
+                                const lineNumber = warning.line || warning.sourceLocation?.start?.line || 0
+                                const columnNumber = warning.column || warning.sourceLocation?.start?.column || 0
+                                const warningCode = warning.code || warning.errorCode
+                                const fileName = warning.file || warning.sourceLocation?.file || warning.sourceLocation?.fileName
+                                
+                                return (
+                                  <div 
+                                    key={index} 
+                                    className="p-3 rounded-lg space-y-2 mb-2"
+                                    style={{ 
+                                      backgroundColor: '#4A4A3B',
+                                      border: '1px solid #5A5A4B'
+                                    }}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex-1">
+                                        {/* Warning Label - Yellow */}
+                                        
+                                        {/* Warning Number and Message - Light Green/Teal */}
+                                        <div className="text-sm" style={{ color: '#80B0A0' }}>
+                                          Warning {index + 1}: {warning.message || 'Unknown warning'}
+                                        </div>
+                                        {(hasLineInfo || fileName || warningCode) && (
+                                          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: '#80B0A0' }}>
+                                            {hasLineInfo && (
+                                              <span className="flex items-center gap-1">
+                                                <span className="font-medium">Location:</span>
+                                                {fileName && (
+                                                  <span className="font-mono">{fileName}:</span>
+                                                )}
+                                                <span>Line {lineNumber}</span>
+                                                {columnNumber > 0 && (
+                                                  <span>, Column {columnNumber}</span>
+                                                )}
+                                              </span>
+                                            )}
+                                            {!hasLineInfo && fileName && (
+                                              <span className="flex items-center gap-1">
+                                                <span className="font-medium">File:</span>
+                                                <span className="font-mono">{fileName}</span>
+                                              </span>
+                                            )}
+                                            {warningCode && (
+                                              <span className="flex items-center gap-1">
+                                                <span className="font-medium">Code:</span>
+                                                <span className="font-mono">{warningCode}</span>
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Additional Warning Details */}
+                                    {(warning.formattedMessage && warning.formattedMessage !== warning.message) && (
+                                      <div 
+                                        className="text-xs font-mono whitespace-pre-wrap p-2 rounded mt-2"
+                                        style={{ 
+                                          color: '#80B0A0',
+                                          backgroundColor: '#3A3A2B'
+                                        }}
+                                      >
+                                        {warning.formattedMessage}
+                                      </div>
+                                    )}
                                   {warning.suggestions && warning.suggestions.length > 0 && (
-                                    <div className="mt-2">
-                                      <div className="text-xs text-yellow-700 dark:text-yellow-300 font-medium">Suggestions:</div>
-                                      <ul className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 space-y-1">
+                                    <div className="mt-2 pt-2" style={{ borderTop: '1px solid #5A5A4B' }}>
+                                      <div className="text-xs font-medium mb-1" style={{ color: '#FFD700' }}>Suggestions:</div>
+                                      <ul className="text-xs space-y-1" style={{ color: '#80B0A0' }}>
                                         {warning.suggestions.map((suggestion: string, suggestionIndex: number) => (
-                                          <li key={suggestionIndex}>• {suggestion}</li>
+                                          <li key={suggestionIndex} className="flex items-start gap-1">
+                                            <span>•</span>
+                                            <span>{suggestion}</span>
+                                          </li>
                                         ))}
                                       </ul>
                                     </div>
                                   )}
-                                </div>
-                              ))}
+                                  </div>
+                                    )
+                                  })}
+                                  </>
+                                )
+                              })()}
                             </div>
                           )}
                         </div>

@@ -655,8 +655,6 @@ export default function CompileButton({
       }
       warnings = uniqueWarnings
       
-      console.log('Processing errors:', errors.length, 'warnings:', warnings.length)
-      
       // Process warnings to ensure consistent structure
       const processedWarnings = warnings.map((warning: any) => ({
         ...warning,
@@ -690,8 +688,6 @@ export default function CompileButton({
         } : undefined),
         suggestions: getErrorSuggestions(error)
       }))
-
-      console.log('Processed - errors:', processedErrors.length, 'warnings:', processedWarnings.length)
 
       // Transform the API response to match the expected CompilationResult format
       const result: CompilationResult = {
