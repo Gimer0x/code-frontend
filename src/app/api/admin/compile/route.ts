@@ -41,7 +41,7 @@ evm_version = "london"
       await fs.writeFile(contractFile, cleanCode)
       
       // Run forge build directly
-      const result = await new Promise<{ success: boolean; output: string; errors: string[] }>((resolve) => {
+      const result = await new Promise<{ success: boolean; output: string; errors: string[]; warnings: string[] }>((resolve) => {
         const forge = spawn('forge', ['build'], {
           cwd: tempDir,
           stdio: 'pipe'
@@ -62,22 +62,36 @@ evm_version = "london"
           const output = stdout + stderr
           const success = code === 0
           
-          // Parse errors from output
+          // Parse errors and warnings from output (warnings can appear even on success)
           const errors: string[] = []
-          if (!success) {
-            const errorLines = output.split('\n').filter(line => 
-              line.includes('Error') || 
-              line.includes('error') || 
-              line.includes('Warning') ||
-              line.includes('warning')
-            )
-            errors.push(...errorLines)
+          const warnings: string[] = []
+          
+          const lines = output.split('\n')
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed) continue
+            
+            // Check if it's an error (only add to errors array if compilation failed)
+            if (trimmed.toLowerCase().includes('error') && !trimmed.toLowerCase().includes('warning')) {
+              if (!success) {
+                errors.push(trimmed)
+              }
+            }
+            
+            // Check if it's a warning (can appear on both success and failure)
+            if (trimmed.toLowerCase().includes('warning')) {
+              warnings.push(trimmed)
+            }
           }
+          
+          // If compilation failed, include errors; otherwise just warnings
+          const errorList = !success ? errors : []
           
           resolve({
             success,
             output,
-            errors
+            errors: errorList,
+            warnings: warnings
           })
         })
         
@@ -85,7 +99,8 @@ evm_version = "london"
           resolve({
             success: false,
             output: error.message,
-            errors: [error.message]
+            errors: [error.message],
+            warnings: []
           })
         })
       })
@@ -97,9 +112,14 @@ evm_version = "london"
         success: result.success,
         output: result.output,
         errors: result.errors,
+        warnings: result.warnings || [],
         contractName,
         compilationTime: null,
-        message: result.success ? 'Compilation successful' : 'Compilation failed'
+        message: result.success 
+          ? (result.warnings && result.warnings.length > 0
+              ? `Compilation completed with ${result.warnings.length} warning(s)`
+              : 'Compilation successful')
+          : 'Compilation failed'
       })
       
     } catch (error: any) {
@@ -110,6 +130,7 @@ evm_version = "london"
         success: false,
         output: '',
         errors: [error.message || 'Compilation failed'],
+        warnings: [],
         contractName,
         compilationTime: null,
         message: 'Compilation failed'
@@ -121,6 +142,7 @@ evm_version = "london"
       success: false,
       output: '',
       errors: [error.message || 'Invalid request'],
+      warnings: [],
       contractName: 'Unknown',
       compilationTime: null,
       message: 'Compilation failed'

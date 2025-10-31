@@ -238,36 +238,6 @@ export default function CompileButton({
     onCompilationResult(null)
 
     try {
-      // Call backend compilation endpoint directly
-      const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
-      
-      // Get admin JWT token for backend call
-      let adminToken = null
-      try {
-        const loginResponse = await fetch(`${backendUrl}/api/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: 'admin@dappdojo.com',
-            password: 'admin123'
-          })
-        })
-        
-        if (loginResponse.ok) {
-          const loginData = await loginResponse.json()
-          adminToken = loginData.accessToken
-          console.log('Got admin token for compilation')
-        } else {
-          console.error('Failed to get admin token:', await loginResponse.text())
-        }
-      } catch (loginError) {
-        console.error('Admin login error:', loginError)
-      }
-      
-      if (!adminToken) {
-        throw new Error('Unable to get admin authentication token for compilation')
-      }
-
       // Extract contract name from code
       const contractNameMatch = code.match(/contract\s+(\w+)/)
       const contractName = contractNameMatch ? contractNameMatch[1] : 'CompileContract'
@@ -276,16 +246,16 @@ export default function CompileButton({
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
       
-      const response = await fetch(`${backendUrl}/api/compile`, {
+      // Use frontend admin compile route which handles authentication via session
+      const response = await fetch('/api/admin/compile', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          courseId: courseId || 'default-course',
           code: code.trim(),
-          contractName
+          contractName,
+          courseId: courseId || 'default-course'
         }),
         signal: controller.signal
       })
@@ -299,10 +269,329 @@ export default function CompileButton({
 
       const apiResult = await response.json()
 
-      // Process the backend response format (backend now provides clean, deduplicated results)
-      const backendResult = apiResult.result || {}
-      const warnings = backendResult.warnings || []
-      const errors = backendResult.errors || []
+      // Handle both structured (backend) and simple (admin compile route) response formats
+      let warnings: any[] = []
+      let errors: any[] = []
+      
+      // Backend route returns: { success, result: { errors: object[], warnings: object[], ... } }
+      if (apiResult.result) {
+        // Backend format - structured errors/warnings
+        const backendResult = apiResult.result || {}
+        warnings = backendResult.warnings || []
+        errors = backendResult.errors || []
+      } else {
+        // Admin compile route format - parse output to extract structured errors/warnings
+        const output = apiResult.output || ''
+        const errorStrings = apiResult.errors || []
+        const warningStrings = apiResult.warnings || []
+        const lines = output.split('\n')
+        
+        // Parse forge output to extract structured errors and warnings
+        const seenErrors = new Set<string>()
+        const seenWarnings = new Set<string>()
+        
+        // Pattern 1: Forge error format "src/Contract.sol:12:5: Error: message"
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          
+          // Extract error with file:line:col format
+          const fileLineMatch = trimmed.match(/^(.+?\.sol):(\d+):(\d+):\s*(Error|Warning):\s*(.+)$/i)
+          if (fileLineMatch) {
+            const [, file, lineNum, colNum, severity, message] = fileLineMatch
+            const isError = severity.toLowerCase() === 'error'
+            const errorKey = `${file}:${lineNum}:${message.trim()}`
+            
+            if (!seenErrors.has(errorKey)) {
+              const parsed = {
+                type: isError ? 'compilation_error' : 'compilation_warning',
+                severity: isError ? 'error' : 'warning',
+                message: message.trim(),
+                line: parseInt(lineNum, 10) || 0,
+                column: parseInt(colNum, 10) || 0,
+                file: file.trim().replace(/^src\//, ''), // Remove src/ prefix for display
+                code: 'UNKNOWN'
+              }
+              
+              if (isError) {
+                errors.push(parsed)
+                seenErrors.add(errorKey)
+              } else {
+                warnings.push(parsed)
+                seenWarnings.add(errorKey)
+              }
+            }
+            continue
+          }
+          
+          // Pattern for Warning format "Warning [XXXX] (file.sol:line:col): message"
+          const solidityWarningMatch = trimmed.match(/^Warning\s+\[(\d+)\]\s+\((.+?):(\d+):(\d+)\):\s*(.+)$/i)
+          if (solidityWarningMatch) {
+            const [, code, file, lineNum, colNum, message] = solidityWarningMatch
+            const warningKey = `${file}:${lineNum}:${message.trim()}`
+            
+            if (!seenWarnings.has(warningKey)) {
+              const filePath = file.trim().replace(/^src\//, '')
+              warnings.push({
+                type: 'compilation_warning',
+                severity: 'warning',
+                message: message.trim(),
+                line: parseInt(lineNum, 10) || 0,
+                column: parseInt(colNum, 10) || 0,
+                file: filePath,
+                code: code || 'UNKNOWN'
+              })
+              seenWarnings.add(warningKey)
+            }
+            continue
+          }
+          
+          // Pattern for forge warning format with code: "src/Contract.sol:12:5: Warning [XXXX]: message"
+          const forgeWarningWithCode = trimmed.match(/^(.+?\.sol):(\d+):(\d+):\s*Warning\s+\[(\d+)\]:\s*(.+)$/i)
+          if (forgeWarningWithCode) {
+            const [, file, lineNum, colNum, code, message] = forgeWarningWithCode
+            const warningKey = `${file}:${lineNum}:${message.trim()}`
+            
+            if (!seenWarnings.has(warningKey)) {
+              const filePath = file.trim().replace(/^src\//, '')
+              warnings.push({
+                type: 'compilation_warning',
+                severity: 'warning',
+                message: message.trim(),
+                line: parseInt(lineNum, 10) || 0,
+                column: parseInt(colNum, 10) || 0,
+                file: filePath,
+                code: code || 'UNKNOWN'
+              })
+              seenWarnings.add(warningKey)
+            }
+            continue
+          }
+          
+          // Pattern for standalone warning messages (e.g., "Warning: Unused function parameter...")
+          const standaloneWarning = trimmed.match(/warning[^:]*:\s*(.+)$/i)
+          if (standaloneWarning && !trimmed.match(/^\d+\s*\|/) && !trimmed.match(/^\s*\||^\s*\^/)) {
+            const message = standaloneWarning[1].trim()
+            const warningKey = `warning:${message}`
+            
+            if (!seenWarnings.has(warningKey)) {
+              warnings.push({
+                type: 'compilation_warning',
+                severity: 'warning',
+                message: message,
+                line: 0,
+                column: 0,
+                file: contractName + '.sol',
+                code: 'UNKNOWN'
+              })
+              seenWarnings.add(warningKey)
+            }
+            continue
+          }
+          
+          // Pattern 2: Solidity compiler error format "Error [XXXX] (file.sol:line:col): message"
+          const solidityErrorMatch = trimmed.match(/^Error\s+\[(\d+)\]\s+\((.+?):(\d+):(\d+)\):\s*(.+)$/i)
+          if (solidityErrorMatch) {
+            const [, code, file, lineNum, colNum, message] = solidityErrorMatch
+            const errorKey = `${file}:${lineNum}:${message.trim()}`
+            
+            if (!seenErrors.has(errorKey)) {
+              const filePath = file.trim().replace(/^src\//, '')
+              errors.push({
+                type: 'compilation_error',
+                severity: 'error',
+                message: message.trim(),
+                line: parseInt(lineNum, 10) || 0,
+                column: parseInt(colNum, 10) || 0,
+                file: filePath,
+                code: code || 'UNKNOWN'
+              })
+              seenErrors.add(errorKey)
+            }
+            continue
+          }
+          
+          // Pattern 2b: Try to extract error code from forge format with code
+          // Format: "src/Contract.sol:12:5: Error [2314]: message"
+          const forgeErrorWithCode = trimmed.match(/^(.+?\.sol):(\d+):(\d+):\s*Error\s+\[(\d+)\]:\s*(.+)$/i)
+          if (forgeErrorWithCode) {
+            const [, file, lineNum, colNum, code, message] = forgeErrorWithCode
+            const errorKey = `${file}:${lineNum}:${message.trim()}`
+            
+            if (!seenErrors.has(errorKey)) {
+              const filePath = file.trim().replace(/^src\//, '')
+              errors.push({
+                type: 'compilation_error',
+                severity: 'error',
+                message: message.trim(),
+                line: parseInt(lineNum, 10) || 0,
+                column: parseInt(colNum, 10) || 0,
+                file: filePath,
+                code: code || 'UNKNOWN'
+              })
+              seenErrors.add(errorKey)
+            }
+            continue
+          }
+        }
+        
+        // Pattern 3: Parse string warnings array from admin compile route
+        if (Array.isArray(warningStrings)) {
+          for (const warningStr of warningStrings) {
+            const trimmed = warningStr.trim()
+            if (!trimmed) continue
+            
+            // Try to extract structured info with error code
+            let fileLineMatch = trimmed.match(/(.+?\.sol):(\d+):(\d+):\s*Warning\s+\[(\d+)\]:\s*(.+)$/i)
+            let code = 'UNKNOWN'
+            
+            if (fileLineMatch) {
+              const [, file, lineNum, colNum, errorCode, message] = fileLineMatch
+              code = errorCode || 'UNKNOWN'
+              const warningKey = `${file}:${lineNum}:${message.trim()}`
+              
+              if (!seenWarnings.has(warningKey)) {
+                warnings.push({
+                  type: 'compilation_warning',
+                  severity: 'warning',
+                  message: message.trim(),
+                  line: parseInt(lineNum, 10) || 0,
+                  column: parseInt(colNum, 10) || 0,
+                  file: file.trim().replace(/^src\//, ''),
+                  code: code
+                })
+                seenWarnings.add(warningKey)
+              }
+            } else {
+              // Fallback to format without code: "file.sol:12:5: Warning: message"
+              fileLineMatch = trimmed.match(/(.+?\.sol):(\d+):(\d+):\s*Warning:\s*(.+)$/i)
+              if (fileLineMatch) {
+                const [, file, lineNum, colNum, message] = fileLineMatch
+                const warningKey = `${file}:${lineNum}:${message.trim()}`
+                
+                if (!seenWarnings.has(warningKey)) {
+                  warnings.push({
+                    type: 'compilation_warning',
+                    severity: 'warning',
+                    message: message.trim(),
+                    line: parseInt(lineNum, 10) || 0,
+                    column: parseInt(colNum, 10) || 0,
+                    file: file.trim().replace(/^src\//, ''),
+                    code: 'UNKNOWN'
+                  })
+                  seenWarnings.add(warningKey)
+                }
+              } else {
+                // Warning without location - extract message
+                const messageMatch = trimmed.match(/warning[^:]*:\s*(.+)$/i)
+                const warningMessage = messageMatch ? messageMatch[1].trim() : trimmed
+                const warningKey = `warning:${warningMessage}`
+                
+                if (!seenWarnings.has(warningKey)) {
+                  warnings.push({
+                    type: 'compilation_warning',
+                    severity: 'warning',
+                    message: warningMessage,
+                    line: 0,
+                    column: 0,
+                    file: contractName + '.sol',
+                    code: 'UNKNOWN'
+                  })
+                  seenWarnings.add(warningKey)
+                }
+              }
+            }
+          }
+        }
+        
+        // Pattern 4: Parse string errors array (fallback)
+        if (errors.length === 0 && Array.isArray(errorStrings)) {
+          for (const errorStr of errorStrings) {
+            const trimmed = errorStr.trim()
+            if (!trimmed || trimmed.toLowerCase().includes('compiler run failed')) continue
+            
+            // Try to extract structured info with error code
+            // First try format with error code: "file.sol:12:5: Error [2314]: message"
+            let fileLineMatch = trimmed.match(/(.+?\.sol):(\d+):(\d+):\s*(Error|Warning)\s+\[(\d+)\]:\s*(.+)$/i)
+            let code = 'UNKNOWN'
+            
+            if (fileLineMatch) {
+              const [, file, lineNum, colNum, severity, errorCode, message] = fileLineMatch
+              code = errorCode || 'UNKNOWN'
+              const isError = severity.toLowerCase() === 'error'
+              const errorKey = `${file}:${lineNum}:${message.trim()}`
+              
+              if (!seenErrors.has(errorKey)) {
+                const parsed = {
+                  type: isError ? 'compilation_error' : 'compilation_warning',
+                  severity: isError ? 'error' : 'warning',
+                  message: message.trim(),
+                  line: parseInt(lineNum, 10) || 0,
+                  column: parseInt(colNum, 10) || 0,
+                  file: file.trim().replace(/^src\//, ''),
+                  code: code
+                }
+                
+                if (isError) {
+                  errors.push(parsed)
+                } else {
+                  warnings.push(parsed)
+                }
+                seenErrors.add(errorKey)
+              }
+            } else {
+              // Fallback to format without code: "file.sol:12:5: Error: message"
+              fileLineMatch = trimmed.match(/(.+?\.sol):(\d+):(\d+):\s*(Error|Warning):\s*(.+)$/i)
+              if (fileLineMatch) {
+                const [, file, lineNum, colNum, severity, message] = fileLineMatch
+                const isError = severity.toLowerCase() === 'error'
+                const errorKey = `${file}:${lineNum}:${message.trim()}`
+                
+                if (!seenErrors.has(errorKey)) {
+                  const parsed = {
+                    type: isError ? 'compilation_error' : 'compilation_warning',
+                    severity: isError ? 'error' : 'warning',
+                    message: message.trim(),
+                    line: parseInt(lineNum, 10) || 0,
+                    column: parseInt(colNum, 10) || 0,
+                    file: file.trim().replace(/^src\//, ''),
+                    code: 'UNKNOWN'
+                  }
+                  
+                  if (isError) {
+                    errors.push(parsed)
+                  } else {
+                    warnings.push(parsed)
+                  }
+                  seenErrors.add(errorKey)
+                }
+              } else if (trimmed.toLowerCase().includes('warning')) {
+                // Warning without location
+                warnings.push({
+                  type: 'compilation_warning',
+                  severity: 'warning',
+                  message: trimmed,
+                  line: 0,
+                  column: 0,
+                  file: contractName + '.sol',
+                  code: 'UNKNOWN'
+                })
+              } else {
+                // Error without location
+                errors.push({
+                  type: 'compilation_error',
+                  severity: 'error',
+                  message: trimmed,
+                  line: 0,
+                  column: 0,
+                  file: contractName + '.sol',
+                  code: 'UNKNOWN'
+                })
+              }
+            }
+          }
+        }
+      }
       
       console.log('Processing errors:', errors.length, 'warnings:', warnings.length)
       
@@ -344,15 +633,15 @@ export default function CompileButton({
 
       // Transform the API response to match the expected CompilationResult format
       const result: CompilationResult = {
-        success: apiResult.success && backendResult.success,
-        message: backendResult.success 
+        success: apiResult.success && processedErrors.length === 0,
+        message: processedErrors.length === 0
           ? (processedWarnings.length > 0 
               ? `Compilation completed with ${processedWarnings.length} warning(s)` 
               : 'Compilation completed')
           : `Compilation failed with ${processedErrors.length} error(s)`,
-        compilationTime: backendResult.compilationTime,
-        artifacts: backendResult.artifacts || [],
-        contracts: backendResult.contracts || [],
+        compilationTime: apiResult.compilationTime || null,
+        artifacts: apiResult.artifacts || [],
+        contracts: apiResult.contracts || [],
         errors: processedErrors,
         warnings: processedWarnings,
         sessionId: undefined, // Not used in backend response
