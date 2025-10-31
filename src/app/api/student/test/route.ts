@@ -1,105 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { databaseService } from '@/lib/database-service'
-import { withAuth, createErrorResponse, createSuccessResponse } from '@/lib/auth-utils'
-import { z } from 'zod'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
-// Validation schema for test results
-const testResultSchema = z.object({
-  courseId: z.string(),
-  lessonId: z.string(),
-  success: z.boolean(),
-  output: z.any().optional(),
-  errors: z.any().optional(),
-  testCount: z.number().optional(),
-  passedCount: z.number().optional(),
-  failedCount: z.number().optional(),
-  testTime: z.number().optional()
-})
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
 
 /**
- * Get test history for a student
+ * Proxy test execution requests to backend
+ * GET: Get test history (delegate to backend)
+ * POST: Run tests (proxy to backend)
  */
 export async function GET(request: NextRequest) {
-  return withAuth(async (request: NextRequest, context) => {
-    try {
-      const { searchParams } = new URL(request.url)
-      const courseId = searchParams.get('courseId')
-      const lessonId = searchParams.get('lessonId')
-
-      if (!courseId) {
-        return createErrorResponse('Course ID is required', 400)
-      }
-
-      const history = await databaseService.getTestHistory(
-        context.user.id,
-        courseId,
-        lessonId || undefined
-      )
-
-      return createSuccessResponse({
-        history,
-        totalCount: history.length
-      })
-
-    } catch (error) {
-      return createErrorResponse('Failed to get test history', 500)
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.backendAccessToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-  })(request, { requireAuth: true })
+
+    const { searchParams } = new URL(request.url)
+    const params = searchParams.toString()
+    const backendUrl = `${BACKEND_URL}/api/student/test${params ? `?${params}` : ''}`
+
+    const backendRes = await fetch(backendUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${session.backendAccessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    const data = await backendRes.json().catch(() => null)
+    return NextResponse.json(data, { status: backendRes.status })
+  } catch (error) {
+    console.error('Test history proxy error:', error)
+    return NextResponse.json({ error: 'Failed to get test history' }, { status: 500 })
+  }
 }
 
 /**
- * Save test result
+ * Proxy test execution to backend
+ * Backend automatically: saves code, compiles, runs tests, returns results
  */
 export async function POST(request: NextRequest) {
-  return withAuth(async (request: NextRequest, context) => {
-    try {
-      const body = await request.json()
-      const validatedData = testResultSchema.parse(body)
-
-      // Get or create student progress
-      const progress = await databaseService.getOrCreateStudentProgress({
-        userId: context.user.id,
-        courseId: validatedData.courseId,
-        lessonId: validatedData.lessonId
-      })
-
-      // Save test result
-      const result = await databaseService.saveTestResult({
-        studentProgressId: progress.id,
-        success: validatedData.success,
-        output: validatedData.output,
-        errors: validatedData.errors,
-        testCount: validatedData.testCount,
-        passedCount: validatedData.passedCount,
-        failedCount: validatedData.failedCount,
-        testTime: validatedData.testTime
-      })
-
-      // Update lesson completion if all tests passed
-      if (validatedData.success && validatedData.passedCount && validatedData.passedCount > 0) {
-        await databaseService.updateLessonCompletion(
-          context.user.id,
-          validatedData.courseId,
-          validatedData.lessonId,
-          true
-        )
-      }
-
-      return createSuccessResponse({
-        message: 'Test result saved successfully',
-        result: {
-          id: result.id,
-          success: result.success,
-          testCount: result.testCount,
-          passedCount: result.passedCount,
-          failedCount: result.failedCount,
-          testTime: result.testTime,
-          createdAt: result.createdAt
-        }
-      })
-
-    } catch (error) {
-      return createErrorResponse('Failed to save test result', 500)
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.backendAccessToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-  })(request, { requireAuth: true })
+
+    const body = await request.text()
+    const backendUrl = `${BACKEND_URL}/api/student/test`
+
+    const backendRes = await fetch(backendUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.backendAccessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body
+    })
+
+    const data = await backendRes.json().catch(() => null)
+    return NextResponse.json(data, { status: backendRes.status })
+  } catch (error) {
+    console.error('[API /api/student/test] Error:', error)
+    return NextResponse.json({ 
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to run tests'
+    }, { status: 500 })
+  }
 }

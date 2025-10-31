@@ -265,11 +265,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       // Backend extracts contract name (e.g., "Events") and saves as "src/Events.sol"
       const savedFile = saveResult.files?.[0]
       const actualFilePath = savedFile?.filePath || 'src/Challenge.sol' // Fallback to default if needed
-      
-      console.log('=== SAVE RESPONSE ===')
-      console.log('saveResult.files:', saveResult.files)
-      console.log('savedFile:', savedFile)
-      console.log('actualFilePath:', actualFilePath)
 
       // Step 2: Compile using saved code from DB with actual filename
       // ✅ Use the actual filePath from the save response (e.g., "src/Events.sol")
@@ -305,16 +300,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       // ✅ UPDATED: Backend now provides reliable success flag and accurate line numbers
       // Response structure: { success, errors: [...], warnings: [...], output: {...} }
       
-      // Debug: Log the full response to understand structure
-      console.log('=== BACKEND COMPILATION RESPONSE ===')
-      console.log('result:', result)
-      console.log('result.success:', result.success)
-      console.log('result.errors:', result.errors)
-      console.log('result.errors?.length:', result.errors?.length)
-      console.log('result.warnings:', result.warnings)
-      console.log('result.warnings?.length:', result.warnings?.length)
-      console.log('result.output:', result.output)
-      
       // ✅ TRUST result.success - it's now reliable!
       // Backend checks: (exitCode === 0) && (errors.length === 0)
       const compilationSuccess = result.success === true
@@ -324,21 +309,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       // ⚠️ CRITICAL: Always extract warnings, even if empty - backend provides them directly
       const errors: any[] = Array.isArray(result.errors) ? [...result.errors] : []
       const warnings: any[] = Array.isArray(result.warnings) ? [...result.warnings] : []
-      
-      console.log('=== EXTRACTED ARRAYS ===')
-      console.log('Extracted errors:', errors.length)
-      console.log('Extracted warnings:', warnings.length)
-      if (warnings.length > 0) {
-        console.log('First warning:', warnings[0])
-        console.log('All warnings:', warnings)
-      } else {
-        console.warn('⚠️ WARNING: No warnings found in result.warnings array!')
-        console.log('Checking result structure:', {
-          hasWarnings: 'warnings' in result,
-          warningsType: typeof result.warnings,
-          warningsValue: result.warnings
-        })
-      }
       
       // Process warnings - backend provides everything correctly formatted
       // ✅ Line numbers are accurate - use them directly
@@ -416,14 +386,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
         actualFilePath: savedFile?.filePath || actualFilePath,
         actualFileName: savedFile?.fileName || 'Challenge.sol'
       }
-      
-      console.log('=== FINAL COMPILATION RESULT ===')
-      console.log('compilationResult.success:', compilationResult.success)
-      console.log('compilationResult.errors.length:', compilationResult.errors.length)
-      console.log('compilationResult.warnings.length:', compilationResult.warnings.length)
-      console.log('compilationResult.warnings:', compilationResult.warnings)
-      console.log('hasWarnings:', hasWarnings)
-
 
       // Update last saved code reference since we just saved
       lastSavedCodeRef.current = code
@@ -579,31 +541,145 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
 
   const handleTest = async () => {
     setIsLoading(true)
+    setIsProcessing(true)
     try {
-      const response = await fetch('/api/challenge/test', {
-        method: 'POST',
+      // Step 1: Save code to DB first (recommended flow)
+      // Backend can also save if files are provided, but saving first is clearer
+      const saveResponse = await fetch('/api/student/code', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          code,
           courseId,
-          lessonId: lesson.id
+          lessonId: lesson.id,
+          files: [
+            { path: 'src/Challenge.sol', content: code } // Filename doesn't matter - backend extracts contract name
+          ]
         })
       })
 
-      const result = await response.json()
-      setOutputContent({
-        type: 'test',
-        content: result,
-        timestamp: new Date()
+      const saveResult = await saveResponse.json()
+
+      if (!saveResponse.ok || !saveResult.success) {
+        throw new Error(saveResult.error || 'Failed to save code. Please try again.')
+      }
+
+      // ✅ Get actual filename from save response (backend extracts contract name)
+      const savedFile = saveResult.files?.[0]
+      const actualFilePath = savedFile?.filePath || 'src/Challenge.sol'
+
+      // Step 2: Run tests (backend will use saved code, compile, then run tests)
+      // files parameter is optional now since code is saved
+      const testResponse = await fetch('/api/student/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId,
+          lessonId: lesson.id,
+          filePath: actualFilePath, // Use actual filename from backend
+          solc: '0.8.30' // Optional
+        })
       })
+
+      // Backend returns JSON even on error status codes (404, 400, etc.)
+      // Important: Backend returns 200 OK even for compilation failures - check code field first
+      let result
+      try {
+        result = await testResponse.json()
+      } catch (parseError) {
+        // If JSON parsing fails, create a basic error object
+        const errorText = await testResponse.text().catch(() => 'Unknown error')
+        result = { success: false, error: errorText, code: 'UNKNOWN_ERROR' }
+      }
+      
+      // Handle compilation failure first (backend returns 200 OK with code: COMPILATION_FAILED)
+      // When compilation fails, NO TESTS ARE RUN
+      if (result.code === 'COMPILATION_FAILED') {
+        setOutputContent({
+          type: 'compile', // Use compile type to show compilation errors
+          content: {
+            success: false,
+            message: 'Compilation failed - tests were not run',
+            errors: result.compilation?.errors || [],
+            warnings: result.compilation?.warnings || [],
+            compilation: result.compilation
+          },
+          timestamp: new Date()
+        })
+        return
+      }
+      
+      // Handle other error codes (NO_CODE_FOUND, NO_CONTRACT_NAME, TEST_NOT_FOUND, etc.)
+      // These return non-200 status codes (400, 404, 408, 500)
+      if (!testResponse.ok && result.code) {
+        // Handle specific error codes from backend with user-friendly messages
+        if (result.code === 'TEST_NOT_FOUND') {
+          throw new Error('No test file found for this lesson. Please contact the administrator to set up tests for this lesson.')
+        }
+        if (result.code === 'NO_CODE_FOUND') {
+          throw new Error('Code not found. Please save your code first before running tests.')
+        }
+        if (result.code === 'NO_CONTRACT_NAME') {
+          throw new Error('Could not detect contract name in your code. Please check that you have a valid contract definition (e.g., "contract MyContract { ... }").')
+        }
+        if (testResponse.status === 408 || result.code === 'TIMEOUT') {
+          throw new Error('Test execution timed out. This may happen if your code takes too long to execute. Please check your code for infinite loops or heavy operations.')
+        }
+        
+        throw new Error(result.error || result.message || `Test request failed with status ${testResponse.status}`)
+      }
+      
+      // Handle generic 404 without error code (route issue)
+      if (testResponse.status === 404 && !result.code) {
+        throw new Error('Test endpoint not found. Please contact support if this issue persists.')
+      }
+
+      // Handle test execution results (backend returns 200 OK)
+      // success: true = all tests passed
+      // success: false = tests ran but some failed (still 200 OK, but success: false)
+      // In both cases, we have tests array and summary
+      if (result.tests && result.summary) {
+        // Tests were executed (some may have failed, but tests ran)
+        setOutputContent({
+          type: 'test',
+          content: {
+            success: result.success, // true if all passed, false if some failed
+            message: result.summary.failed === 0 
+              ? `All ${result.summary.total || 0} test(s) passed! 🎉`
+              : `${result.summary.passed || 0} of ${result.summary.total || 0} test(s) passed`,
+            contractName: result.contractName || 'Unknown',
+            testFileName: result.testFileName || 'Unknown',
+            tests: result.tests || [],
+            summary: result.summary || { total: 0, passed: 0, failed: 0 },
+            compilation: result.compilation || { success: true, warnings: [] },
+            timestamp: result.timestamp || new Date().toISOString()
+          },
+          timestamp: new Date()
+        })
+      } else {
+        // Unexpected response format
+        setOutputContent({
+          type: 'error',
+          content: {
+            message: result.error || 'Test execution failed - unexpected response format',
+            code: result.code,
+            success: false
+          },
+          timestamp: new Date()
+        })
+      }
     } catch (error) {
+      console.error('Test error:', error)
       setOutputContent({
         type: 'error',
-        content: { message: 'Failed to run tests' },
+        content: {
+          message: error instanceof Error ? error.message : 'Failed to run tests',
+          success: false
+        },
         timestamp: new Date()
       })
     } finally {
       setIsLoading(false)
+      setIsProcessing(false)
     }
   }
 
@@ -1645,17 +1721,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                             const warningsArray = outputContent.content.warnings || []
                             const hasWarnings = Array.isArray(warningsArray) && warningsArray.length > 0
                             
-                            // Debug logging to trace warning display
-                            if (process.env.NODE_ENV === 'development') {
-                              console.log('=== RENDERING WARNINGS CHECK ===')
-                              console.log('outputContent.content:', outputContent.content)
-                              console.log('outputContent.content.warnings:', outputContent.content.warnings)
-                              console.log('warningsArray:', warningsArray)
-                              console.log('warningsArray.length:', warningsArray.length)
-                              console.log('hasWarnings:', hasWarnings)
-                              console.log('content.success:', outputContent.content.success)
-                            }
-                            
                             return hasWarnings
                           })() && (
                             <div className="space-y-2 mt-4">
@@ -1778,104 +1843,148 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
 
                       {outputContent.type === 'test' && (
                         <div className="space-y-3 transform-gpu">
+                           {/* Success/Failure Header */}
                            {outputContent.content.success ? (
-                             <div className="bg-green-50 dark:bg-green-900 p-3 rounded-lg">
-                               <div className="text-sm text-green-800 dark:text-green-200">
+                             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 rounded-lg">
+                               <div className="text-sm text-green-800 dark:text-green-200 font-medium">
                                  ✅ {outputContent.content.message}
                                </div>
-                               <div className="text-xs text-green-700 dark:text-green-300 mt-1">
-                                 Contract: {outputContent.content.contractName}
+                               {(outputContent.content.contractName || outputContent.content.testFileName) && (
+                                 <div className="text-xs text-green-700 dark:text-green-300 mt-1 space-y-0.5">
+                                   {outputContent.content.contractName && (
+                                     <div>Contract: {outputContent.content.contractName}</div>
+                                   )}
+                                   {outputContent.content.testFileName && (
+                                     <div>Test File: {outputContent.content.testFileName}</div>
+                                   )}
+                                 </div>
+                               )}
+                             </div>
+                           ) : outputContent.content.tests && outputContent.content.summary ? (
+                             // Tests ran but some failed - show yellow warning style (not error)
+                             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded-lg">
+                               <div className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                                 ⚠️ {outputContent.content.message || 'Some tests failed'}
                                </div>
-                               <div className="text-xs text-green-700 dark:text-green-300">
-                                 Test File: {outputContent.content.testFileName}
-                               </div>
+                               {(outputContent.content.contractName || outputContent.content.testFileName) && (
+                                 <div className="text-xs text-yellow-700 dark:text-yellow-300 mt-1 space-y-0.5">
+                                   {outputContent.content.contractName && (
+                                     <div>Contract: {outputContent.content.contractName}</div>
+                                   )}
+                                   {outputContent.content.testFileName && (
+                                     <div>Test File: {outputContent.content.testFileName}</div>
+                                   )}
+                                 </div>
+                               )}
                              </div>
                            ) : (
+                             // No tests ran - show red error style
                              <div className="bg-red-50 dark:bg-red-900 p-3 rounded-lg">
-                               <div className="text-sm text-red-800 dark:text-red-200">
-                                 ❌ {outputContent.content.message}
+                               <div className="text-sm text-red-800 dark:text-red-200 font-medium">
+                                 ❌ {outputContent.content.message || 'Test execution failed'}
                                </div>
                                {outputContent.content.error && (
                                  <div className="text-xs text-red-700 dark:text-red-300 mt-1">
                                    Error: {outputContent.content.error}
                                  </div>
                                )}
+                               {outputContent.content.code && (
+                                 <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                   Code: {outputContent.content.code}
+                                 </div>
+                               )}
                              </div>
                            )}
 
-                           {outputContent.content.result && (
-                             <div className="space-y-2">
-                               <div className="bg-blue-50 dark:bg-blue-900 p-3 rounded-lg">
-                                 <div className="text-sm text-blue-800 dark:text-blue-200 font-medium">
-                                   Test Summary
-                                 </div>
-                                 <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                                   {outputContent.content.result.totalTests > 0 && `Total: ${outputContent.content.result.totalTests}`}
-                                   {outputContent.content.result.totalTests > 0 && outputContent.content.result.passedTests > 0 && ' | '}
-                                   {outputContent.content.result.passedTests > 0 && `Passed: ${outputContent.content.result.passedTests}`}
-                                   {(outputContent.content.result.totalTests > 0 || outputContent.content.result.passedTests > 0) && outputContent.content.result.failedTests > 0 && ' | '}
-                                   {outputContent.content.result.failedTests > 0 && `Failed: ${outputContent.content.result.failedTests}`}
-                                 </div>
+                           {/* ⚠️ CRITICAL: Show compilation warnings even when tests pass */}
+                           {outputContent.content.compilation?.warnings && 
+                            Array.isArray(outputContent.content.compilation.warnings) && 
+                            outputContent.content.compilation.warnings.length > 0 && (
+                             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded-lg">
+                               <div className="text-sm text-yellow-800 dark:text-yellow-200 font-medium mb-2">
+                                 ⚠️ Compilation Warnings ({outputContent.content.compilation.warnings.length})
                                </div>
+                               <div className="space-y-1">
+                                 {outputContent.content.compilation.warnings.map((warning: any, index: number) => (
+                                   <div key={index} className="text-xs text-yellow-700 dark:text-yellow-300">
+                                     {warning.file && warning.line && (
+                                       <span className="font-mono">{warning.file}:{warning.line}: </span>
+                                     )}
+                                     {warning.message || 'Unknown warning'}
+                                   </div>
+                                 ))}
+                               </div>
+                             </div>
+                           )}
 
-                               {outputContent.content.result.testResults && outputContent.content.result.testResults.length > 0 && (
-                                 <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-2 border border-gray-200 dark:border-gray-700 rounded-lg p-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
-                                   {outputContent.content.result.testResults.length > 10 && (
-                                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 text-center">
-                                       Scroll to see all {outputContent.content.result.testResults.length} tests
-                                     </div>
-                                   )}
-                                   {outputContent.content.result.testResults.map((test: any, index: number) => (
-                                     <div key={index} className={`p-3 rounded-lg ${
-                                       test.success 
-                                         ? 'bg-green-50 dark:bg-green-900' 
-                                         : 'bg-red-50 dark:bg-red-900'
+                           {/* Test Summary */}
+                           {outputContent.content.summary && (
+                             <div className="bg-blue-50 dark:bg-blue-900 p-3 rounded-lg">
+                               <div className="text-sm text-blue-800 dark:text-blue-200 font-medium mb-1">
+                                 Test Summary
+                               </div>
+                               <div className="text-xs text-blue-700 dark:text-blue-300">
+                                 {outputContent.content.summary.total > 0 && (
+                                   <>
+                                     <span className="font-medium">Total:</span> {outputContent.content.summary.total}
+                                   </>
+                                 )}
+                                 {outputContent.content.summary.total > 0 && outputContent.content.summary.passed > 0 && ' | '}
+                                 {outputContent.content.summary.passed > 0 && (
+                                   <>
+                                     <span className="font-medium text-green-700 dark:text-green-300">Passed:</span> {outputContent.content.summary.passed}
+                                   </>
+                                 )}
+                                 {outputContent.content.summary.total > 0 && outputContent.content.summary.failed > 0 && ' | '}
+                                 {outputContent.content.summary.failed > 0 && (
+                                   <>
+                                     <span className="font-medium text-red-700 dark:text-red-300">Failed:</span> {outputContent.content.summary.failed}
+                                   </>
+                                 )}
+                               </div>
+                             </div>
+                           )}
+
+                           {/* Individual Test Results */}
+                           {outputContent.content.tests && Array.isArray(outputContent.content.tests) && outputContent.content.tests.length > 0 && (
+                             <div className="space-y-2">
+                               <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                 Individual Test Results
+                               </div>
+                               <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-2 border border-gray-200 dark:border-gray-700 rounded-lg p-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-gray-100 dark:scrollbar-track-gray-800">
+                                 {outputContent.content.tests.length > 10 && (
+                                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 text-center">
+                                     Scroll to see all {outputContent.content.tests.length} tests
+                                   </div>
+                                 )}
+                                 {outputContent.content.tests.map((test: any, index: number) => (
+                                   <div key={index} className={`p-3 rounded-lg ${
+                                     test.status === 'passed'
+                                       ? 'bg-green-50 dark:bg-green-900' 
+                                       : 'bg-red-50 dark:bg-red-900'
+                                   }`}>
+                                     <div className={`text-sm font-medium ${
+                                       test.status === 'passed'
+                                         ? 'text-green-800 dark:text-green-200' 
+                                         : 'text-red-800 dark:text-red-200'
                                      }`}>
-                                       <div className={`text-sm font-medium ${
-                                         test.success 
-                                           ? 'text-green-800 dark:text-green-200' 
-                                           : 'text-red-800 dark:text-red-200'
-                                       }`}>
-                                         {test.success ? '✅' : '❌'} {test.name}
-                                       </div>
-                                       <div className={`text-xs mt-1 ${
-                                         test.success 
-                                           ? 'text-green-700 dark:text-green-300' 
-                                           : 'text-red-700 dark:text-red-300'
-                                       }`}>
-                                         Status: {test.status} | Gas: {test.gas} | Duration: {test.duration}
-                                       </div>
-                                       {test.reason && (
-                                         <div className="text-xs text-red-600 dark:text-red-400 mt-1">
-                                           Reason: {test.reason}
-                                         </div>
-                                       )}
-                                       {test.logs && test.logs.length > 0 && (
-                                         <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                           Logs: {test.logs.join(', ')}
-                                         </div>
-                                       )}
+                                       {test.status === 'passed' ? '✅' : '❌'} {test.name}
                                      </div>
-                                   ))}
-                                 </div>
-                               )}
-
-                               {outputContent.content.result.errors && outputContent.content.result.errors.length > 0 && (
-                                 <div className="space-y-2">
-                                   {outputContent.content.result.errors.map((error: any, index: number) => (
-                                     <div key={index} className="bg-red-50 dark:bg-red-900 p-3 rounded-lg">
-                                       <div className="text-sm text-red-800 dark:text-red-200">
-                                         ❌ {error.message}
-                                       </div>
-                                       {error.type && (
-                                         <div className="text-xs text-red-700 dark:text-red-300 mt-1">
-                                           Type: {error.type}
-                                         </div>
-                                       )}
+                                     <div className={`text-xs mt-1 ${
+                                       test.status === 'passed'
+                                         ? 'text-green-700 dark:text-green-300' 
+                                         : 'text-red-700 dark:text-red-300'
+                                     }`}>
+                                       Status: {test.status} {test.gasUsed > 0 && `| Gas: ${test.gasUsed}`} {test.duration > 0 && `| Duration: ${test.duration}ms`}
                                      </div>
-                                   ))}
-                                 </div>
-                               )}
+                                     {test.error && (
+                                       <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                         Error: {test.error}
+                                       </div>
+                                     )}
+                                   </div>
+                                 ))}
+                               </div>
                              </div>
                            )}
                          </div>
