@@ -238,132 +238,236 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
 
   // Challenge system functions
   const handleCompile = async () => {
-    console.log('=== HANDLE COMPILE CALLED ===')
     setIsLoading(true)
     setIsProcessing(true)
     try {
-      // Call backend compilation endpoint directly
-      const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
-      
-      // Get admin JWT token for backend call
-      let adminToken = null
-      try {
-        const loginResponse = await fetch(`${backendUrl}/api/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: 'admin@dappdojo.com',
-            password: 'admin123'
-          })
-        })
-        
-        if (loginResponse.ok) {
-          const loginData = await loginResponse.json()
-          adminToken = loginData.accessToken
-          console.log('Got admin token for compilation')
-        } else {
-          console.error('Failed to get admin token:', await loginResponse.text())
-        }
-      } catch (loginError) {
-        console.error('Admin login error:', loginError)
-      }
-      
-      if (!adminToken) {
-        throw new Error('Unable to get admin authentication token for compilation')
-      }
-
-      // Extract contract name from code
-      const contractNameMatch = code.match(/contract\s+(\w+)/)
-      const contractName = contractNameMatch ? contractNameMatch[1] : 'CompileContract'
-
-      const response = await fetch('/api/student/compile', {
-        method: 'POST',
+      // Step 1: Save code to DB first (required flow)
+      const saveResponse = await fetch('/api/student/code', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           courseId,
           lessonId: lesson.id,
-          filePath: 'src/Challenge.sol',
           files: [
             { path: 'src/Challenge.sol', content: code }
           ]
         })
       })
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Compilation failed: ${response.status}`)
-      }
-      
-      const result = await response.json()
-      
-      // Debug: Log the result structure
-      console.log('=== COMPILATION DEBUG ===')
-      console.log('Backend compilation result:', result)
-      console.log('Top-level success:', result.success)
-      console.log('Compilation success:', result.result?.success)
-      console.log('Errors count:', result.result?.errors?.length || 0)
-      console.log('Warnings count:', result.result?.warnings?.length || 0)
-      console.log('=== END DEBUG ===')
-      
-      // Process the backend response format (backend now provides clean, deduplicated results)
-      const backendResult = result.result || result || {}
-      const warnings = backendResult.warnings || []
-      const errors = backendResult.errors || []
-      
-      // Process warnings to ensure consistent structure
-      const processedWarnings = warnings.map((warning: any) => ({
-        ...warning,
-        type: warning.type || 'compilation_warning',
-        severity: warning.severity || 'warning',
-        sourceLocation: warning.sourceLocation || (warning.line ? {
-          file: warning.file || 'Unknown',
-          start: {
-            line: warning.line || 0,
-            column: warning.column || 0
-          }
-        } : undefined)
-      }))
 
-      // Process errors with detailed information (backend already deduplicates)
-      const processedErrors = errors.map((error: any) => ({
-        ...error,
-        type: error.type || 'compilation_error',
-        severity: error.severity || 'error',
-        message: error.message || 'Unknown compilation error',
-        line: error.line || 0,
-        column: error.column || 0,
-        file: error.file || 'Unknown',
-        code: error.code || 'UNKNOWN',
-        sourceLocation: error.sourceLocation || (error.line ? {
-          file: error.file || 'Unknown',
-          start: {
-            line: error.line || 0,
-            column: error.column || 0
+      const saveResult = await saveResponse.json()
+
+      if (!saveResponse.ok || !saveResult.success) {
+        throw new Error(saveResult.error || 'Failed to save code. Please try again.')
+      }
+
+      // Step 2: Compile using saved code from DB (no files in request body)
+      const compileResponse = await fetch('/api/student/compile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId,
+          lessonId: lesson.id,
+          filePath: 'src/Challenge.sol' // Optional - which file to compile
+          // Note: solc parameter is optional, backend will use default if not provided
+        })
+      })
+
+      if (!compileResponse.ok) {
+        const errorData = await compileResponse.json()
+        
+        // Handle NO_CODE_FOUND error specifically
+        if (errorData.code === 'NO_CODE_FOUND') {
+          throw new Error('Code not found. Please save your code first.')
+        }
+        
+        throw new Error(errorData.error || `Compilation failed: ${compileResponse.status}`)
+      }
+
+      const result = await compileResponse.json()
+
+      // Debug: Log the result structure to help troubleshoot
+      console.log('=== COMPILATION RESPONSE ===')
+      console.log('Full response:', result)
+      console.log('result.success:', result.success)
+      console.log('result.result:', result.result)
+      console.log('=== END RESPONSE ===')
+
+      // Extract contract name from code for fallback
+      const contractNameMatch = code.match(/contract\s+(\w+)/)
+      const contractName = contractNameMatch ? contractNameMatch[1] : 'Challenge'
+
+      // Process the backend response format
+      // The backend may return the compilation result in stdout as a JSON string
+      let backendResult: any = {}
+      let parsedOutput: any = null
+
+      if (result.result?.stdout) {
+        try {
+          // Parse the JSON string from stdout
+          parsedOutput = JSON.parse(result.result.stdout)
+          console.log('Parsed stdout:', parsedOutput)
+          
+          // Extract errors and warnings from parsed output
+          backendResult = {
+            errors: parsedOutput.errors || [],
+            warnings: parsedOutput.warnings || [],
+            output: result.result.stdout,
+            ...parsedOutput
           }
-        } : undefined),
-        suggestions: getErrorSuggestions(error)
-      }))
+        } catch (parseError) {
+          console.error('Failed to parse stdout JSON:', parseError)
+          // Fallback: use the result structure as-is
+          backendResult = result.result || {}
+        }
+      } else {
+        // Fallback: use result structure directly
+        backendResult = result.result || result || {}
+      }
+
+      const compilationSuccess = result.success !== undefined ? result.success : (backendResult.success !== undefined ? backendResult.success : false)
+      const warnings = backendResult.warnings || result.warnings || []
+      const errors = backendResult.errors || result.errors || []
+
+      console.log('Extracted - errors:', errors.length, 'warnings:', warnings.length)
+
+      // Process warnings to ensure consistent structure
+      const processedWarnings = warnings.map((warning: any) => {
+        // Extract location from sourceLocation if present
+        const sourceLoc = warning.sourceLocation || {}
+        const start = sourceLoc.start || {}
+        
+        return {
+          ...warning,
+          type: warning.type || 'compilation_warning',
+          severity: warning.severity || warning.type || 'warning',
+          message: warning.message || warning.formattedMessage || 'Unknown warning',
+          line: warning.line || start.line || sourceLoc.line || 0,
+          column: warning.column || start.column || sourceLoc.column || 0,
+          file: warning.file || sourceLoc.file || sourceLoc.fileName || 'Unknown',
+          code: warning.errorCode || warning.code || undefined,
+          sourceLocation: warning.sourceLocation || (warning.line || start.line ? {
+            file: warning.file || sourceLoc.file || sourceLoc.fileName || 'Unknown',
+            start: {
+              line: warning.line || start.line || 0,
+              column: warning.column || start.column || 0
+            }
+          } : undefined)
+        }
+      })
+
+      // Process errors with detailed information
+      const processedErrors = errors.map((error: any) => {
+        // Extract location from sourceLocation if present
+        const sourceLoc = error.sourceLocation || {}
+        const start = sourceLoc.start || {}
+        
+        // Try multiple ways to get line number
+        const lineNumber = error.line !== undefined && error.line !== null 
+          ? error.line 
+          : (start.line !== undefined && start.line !== null 
+            ? start.line 
+            : (sourceLoc.line !== undefined && sourceLoc.line !== null
+              ? sourceLoc.line
+              : null))
+        
+        // Try multiple ways to get column number
+        const columnNumber = error.column !== undefined && error.column !== null
+          ? error.column
+          : (start.column !== undefined && start.column !== null
+            ? start.column
+            : (sourceLoc.column !== undefined && sourceLoc.column !== null
+              ? sourceLoc.column
+              : 0))
+        
+        // Try multiple ways to get file name
+        const fileName = error.file 
+          || sourceLoc.file 
+          || sourceLoc.fileName 
+          || error.fileName
+          || (sourceLoc && typeof sourceLoc === 'object' && Object.keys(sourceLoc).find(k => k.toLowerCase().includes('file')))
+          || 'Unknown'
+        
+        // Try multiple ways to get error code
+        const errorCode = error.errorCode 
+          || error.code 
+          || error.error_code
+          || (typeof error.formattedMessage === 'string' && error.formattedMessage.match(/error\s+(\w+):/i)?.[1])
+          || undefined
+        
+        // Preserve formattedMessage if available
+        const formattedMessage = error.formattedMessage || error.message
+        
+        return {
+          ...error,
+          type: error.type || 'compilation_error',
+          severity: error.severity || error.type || 'error',
+          message: error.message || formattedMessage || 'Unknown compilation error',
+          formattedMessage: formattedMessage,
+          line: lineNumber,
+          column: columnNumber,
+          file: fileName,
+          code: errorCode,
+          sourceLocation: error.sourceLocation || (lineNumber !== null ? {
+            file: fileName,
+            start: {
+              line: lineNumber,
+              column: columnNumber
+            }
+          } : undefined),
+          suggestions: getErrorSuggestions(error)
+        }
+      })
 
       console.log('Processed - errors:', processedErrors.length, 'warnings:', processedWarnings.length)
+      if (processedErrors.length > 0) {
+        console.log('Processed errors:', processedErrors)
+        // Log first error details for debugging
+        const firstError = processedErrors[0]
+        console.log('First error details:', {
+          message: firstError.message,
+          line: firstError.line,
+          column: firstError.column,
+          file: firstError.file,
+          code: firstError.code,
+          sourceLocation: firstError.sourceLocation,
+          full: firstError
+        })
+      }
+      if (processedWarnings.length > 0) {
+        console.log('Processed warnings:', processedWarnings)
+      }
 
       // Create the result in the expected format
+      // Determine success: if no errors, consider it successful (even with warnings)
+      const isSuccessful = compilationSuccess && processedErrors.length === 0
+      
       const compilationResult = {
-        success: result.success && backendResult.success,
-        message: backendResult.success 
+        success: isSuccessful,
+        message: isSuccessful
           ? (processedWarnings.length > 0 
               ? `Compilation completed with ${processedWarnings.length} warning(s)` 
               : 'Compilation completed')
           : `Compilation failed with ${processedErrors.length} error(s)`,
-        output: backendResult.output,
+        output: backendResult.output || result.output,
         errors: processedErrors,
         warnings: processedWarnings,
-        contractName: result.contractName || contractName,
-        compilationTime: backendResult.compilationTime,
-        artifacts: backendResult.artifacts || [],
-        contracts: backendResult.contracts || [],
-        sessionId: null,
+        contractName: result.contractName || backendResult.contractName || contractName,
+        compilationTime: backendResult.compilationTime || result.compilationTime,
+        artifacts: backendResult.artifacts || result.artifacts || [],
+        contracts: backendResult.contracts || result.contracts || [],
+        sessionId: result.sessionId || null,
         timestamp: result.timestamp || new Date().toISOString()
       }
+
+      console.log('=== PROCESSED COMPILATION RESULT ===')
+      console.log('compilationResult:', compilationResult)
+      console.log('success:', compilationResult.success)
+      console.log('errors:', compilationResult.errors.length)
+      console.log('warnings:', compilationResult.warnings.length)
+      console.log('=== END PROCESSED ===')
+
+      // Update last saved code reference since we just saved
+      lastSavedCodeRef.current = code
       
       // Add a small delay to prevent jarring transitions
       setTimeout(() => {
@@ -1186,8 +1290,9 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                 onClick={handleCompile}
                 disabled={isLoading}
                 className="px-3 py-1 bg-slate-700 text-white rounded text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-[100px]"
+                title="Code will be saved automatically before compilation"
               >
-                {isLoading ? 'Compiling...' : 'Compile'}
+                {isLoading ? 'Saving & Compiling...' : 'Compile'}
               </button>
               <button 
                 onClick={handleTest}
@@ -1385,9 +1490,29 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                         </span>
                       </div>
                       
-                      {outputContent.type === 'compile' && (
+                      {outputContent.type === 'compile' && outputContent.content && (
                         <div className="space-y-3 transform-gpu">
-                          {outputContent.content.success ? (
+                          {/* Render compilation results */}
+                          {(() => {
+                            const content = outputContent.content
+                            const hasErrors = content.errors && Array.isArray(content.errors) && content.errors.length > 0
+                            const hasWarnings = content.warnings && Array.isArray(content.warnings) && content.warnings.length > 0
+                            // Consider successful if success is explicitly true, or if success is not false and there are no errors
+                            const isSuccess = content.success === true || (content.success !== false && !hasErrors)
+                            
+                            console.log('Rendering compile result:', {
+                              hasErrors,
+                              hasWarnings,
+                              isSuccess,
+                              success: content.success,
+                              errorsCount: content.errors?.length || 0,
+                              warningsCount: content.warnings?.length || 0,
+                              message: content.message,
+                              fullContent: content
+                            })
+                            
+                            if (isSuccess) {
+                              return (
                             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 rounded-lg">
                               {/* Header with status and timing */}
                               <div className="flex items-center justify-between mb-3">
@@ -1404,12 +1529,10 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                                 )}
                               </div>
 
-                              {/* Compilation details */}
-                              {outputContent.content.message && (
-                                <div className="mb-3 text-sm text-green-700 dark:text-green-300">
-                                  {outputContent.content.message}
-                                </div>
-                              )}
+                              {/* Compilation details - always show message */}
+                              <div className="mb-3 text-sm text-green-700 dark:text-green-300">
+                                {outputContent.content.message || 'Compilation completed successfully'}
+                              </div>
 
                               {/* Artifacts information */}
                               {outputContent.content.artifacts && outputContent.content.artifacts.length > 0 && (
@@ -1440,33 +1563,114 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                               )}
 
                             </div>
-                          ) : (
-                            <div className="space-y-2">
-                              {outputContent.content.errors?.map((error: any, index: number) => (
-                                <div key={index} className="bg-red-50 dark:bg-red-900 p-3 rounded-lg">
-                                <div className="text-sm text-red-800 dark:text-red-200 font-medium">
-                                  Error {index + 1}: {error.message}
+                            )
+                            } else if (hasErrors) {
+                              return (
+                                <div className="space-y-2">
+                                  {content.errors.map((error: any, index: number) => {
+                                    const hasLineInfo = error.line !== undefined && error.line !== null
+                                    const lineNumber = error.line || 0
+                                    const columnNumber = error.column || 0
+                                    const errorCode = error.code || error.errorCode
+                                    const fileName = error.file || error.sourceLocation?.file || error.sourceLocation?.fileName
+                                    
+                                    return (
+                                      <div key={index} className="bg-red-50 dark:bg-red-900 p-3 rounded-lg space-y-2">
+                                        {/* Error Header */}
+                                        <div className="flex items-start justify-between gap-2">
+                                          <div className="flex-1">
+                                            <div className="text-sm text-red-800 dark:text-red-200 font-medium">
+                                              Error {index + 1}: {error.message || 'Unknown error'}
+                                            </div>
+                                            {(hasLineInfo || fileName || errorCode) && (
+                                              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-red-700 dark:text-red-300">
+                                                {hasLineInfo && (
+                                                  <span className="flex items-center gap-1">
+                                                    <span className="font-medium">Location:</span>
+                                                    {fileName && (
+                                                      <span className="font-mono">{fileName}:</span>
+                                                    )}
+                                                    <span>Line {lineNumber}</span>
+                                                    {columnNumber > 0 && (
+                                                      <span>, Column {columnNumber}</span>
+                                                    )}
+                                                  </span>
+                                                )}
+                                                {!hasLineInfo && fileName && (
+                                                  <span className="flex items-center gap-1">
+                                                    <span className="font-medium">File:</span>
+                                                    <span className="font-mono">{fileName}</span>
+                                                  </span>
+                                                )}
+                                                {errorCode && (
+                                                  <span className="flex items-center gap-1">
+                                                    <span className="font-medium">Code:</span>
+                                                    <span className="font-mono">{errorCode}</span>
+                                                  </span>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Additional Error Details */}
+                                        {(error.formattedMessage && error.formattedMessage !== error.message) && (
+                                          <div className="text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950 p-2 rounded font-mono whitespace-pre-wrap">
+                                            {error.formattedMessage}
+                                          </div>
+                                        )}
+                                        
+                                        {/* Error Type */}
+                                        {error.type && error.type !== 'compilation_error' && (
+                                          <div className="text-xs text-red-600 dark:text-red-400">
+                                            <span className="font-medium">Type:</span> {error.type}
+                                          </div>
+                                        )}
+                                        
+                                        {/* Suggestions */}
+                                        {error.suggestions && error.suggestions.length > 0 && (
+                                          <div className="mt-2 pt-2 border-t border-red-200 dark:border-red-800">
+                                            <div className="text-xs text-red-700 dark:text-red-300 font-medium mb-1">Suggestions:</div>
+                                            <ul className="text-xs text-red-600 dark:text-red-400 space-y-1">
+                                              {error.suggestions.map((suggestion: string, suggestionIndex: number) => (
+                                                <li key={suggestionIndex} className="flex items-start gap-1">
+                                                  <span>•</span>
+                                                  <span>{suggestion}</span>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
                                 </div>
-                                {error.line > 0 && (
-                                  <div className="text-xs text-red-700 dark:text-red-300 mt-1">
-                                    Line {error.line}, Column {error.column}
+                              )
+                            } else {
+                              // Final fallback: Always show at least a basic message
+                              return (
+                                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg">
+                                  <div className="text-sm text-blue-800 dark:text-blue-200 font-medium mb-2">
+                                    Compilation Status
                                   </div>
-                                )}
-                                {error.suggestions && error.suggestions.length > 0 && (
-                                  <div className="mt-2">
-                                    <div className="text-xs text-red-700 dark:text-red-300 font-medium">Suggestions:</div>
-                                    <ul className="text-xs text-red-600 dark:text-red-400 mt-1 space-y-1">
-                                      {error.suggestions.map((suggestion: string, suggestionIndex: number) => (
-                                        <li key={suggestionIndex}>• {suggestion}</li>
-                                      ))}
-                                    </ul>
+                                  <div className="text-sm text-blue-700 dark:text-blue-300">
+                                    {content.message || 'Compilation completed'}
                                   </div>
-                                )}
-                              </div>
-                              ))}
-                            </div>
-                          )}
+                                  {/* Debug info in development */}
+                                  {process.env.NODE_ENV === 'development' && (
+                                    <details className="mt-2">
+                                      <summary className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer">Debug info</summary>
+                                      <pre className="text-xs mt-1 overflow-auto max-h-32 bg-white dark:bg-gray-900 p-2 rounded">
+                                        {JSON.stringify(content, null, 2)}
+                                      </pre>
+                                    </details>
+                                  )}
+                                </div>
+                              )
+                            }
+                          })()}
                           
+                          {/* Always show warnings if they exist */}
                           {(outputContent.content.warnings?.length > 0 || outputContent.content.result?.warnings?.length > 0) && (
                             <div className="space-y-2">
                               <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
