@@ -143,8 +143,8 @@ export default function AdminDashboard() {
     fetchStats()
   }, [user])
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     router.push('/admin/login')
   }
 

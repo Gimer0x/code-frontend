@@ -103,7 +103,10 @@ export default function AdminCourses() {
                 {user?.email}
               </span>
               <button
-                onClick={() => logout()}
+                onClick={async () => {
+                  await logout()
+                  router.push('/admin/login')
+                }}
                 className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               >
                 Sign Out

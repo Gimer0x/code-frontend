@@ -16,7 +16,7 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false)
   
   const router = useRouter()
-  const { login, isAuthenticated, isAdmin, loading: authLoading } = useAuth()
+  const { login, logout, isAuthenticated, isAdmin, loading: authLoading } = useAuth()
 
   // Redirect if already authenticated as admin
   useEffect(() => {
@@ -40,8 +40,7 @@ export default function AdminLogin() {
         } else {
           setError('Admin access required. Please contact an administrator.')
           // Logout the user since they're not admin
-          const { logout } = useAuth()
-          logout()
+          await logout()
         }
       } else {
         setError(result.error || 'Invalid email or password')

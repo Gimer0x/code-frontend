@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { getSession } from 'next-auth/react'
+import { getSession, signOut } from 'next-auth/react'
 import { authService } from '@/lib/auth-service'
 
 interface User {
@@ -25,7 +25,7 @@ interface AuthContextType {
   login: (credentials: { email: string; password: string }) => Promise<{ success: boolean; message?: string; error?: string }>
   register: (userData: { email: string; password: string; name: string; role?: 'ADMIN' | 'STUDENT' }) => Promise<{ success: boolean; message?: string; error?: string }>
   loginWithGoogle: (idToken: string) => Promise<{ success: boolean; message?: string; error?: string }>
-  logout: () => void
+  logout: () => Promise<void>
   isAuthenticated: boolean
   isAdmin: boolean
   refreshUser: () => Promise<void>
@@ -106,9 +106,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
-  const logout = () => {
+  const logout = async () => {
     authService.logout()
     setUser(null)
+    
+    // Also clear NextAuth session if it exists
+    try {
+      await signOut({ redirect: false })
+    } catch {}
+    
     if (typeof window !== 'undefined' && (window as any).google?.accounts?.id) {
       try {
         (window as any).google.accounts.id.disableAutoSelect()

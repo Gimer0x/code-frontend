@@ -10,7 +10,10 @@ export default function AppHeader() {
   // Matches: /courses/[id]/modules/[moduleId]/lessons/[lessonId]
   const hideOnLessonPage = /^\/courses\/[^/]+\/modules\/[^/]+\/lessons\/[^/]+/.test(pathname || '')
 
-  if (hideOnLessonPage) return null
+  // Hide header on admin routes (admin pages have their own headers)
+  const hideOnAdminPage = /^\/admin/.test(pathname || '')
+
+  if (hideOnLessonPage || hideOnAdminPage) return null
 
   return <Navigation />
 }
