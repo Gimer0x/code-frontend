@@ -242,6 +242,7 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
     setIsProcessing(true)
     try {
       // Step 1: Save code to DB first (required flow)
+      // ✅ Backend now extracts contract name and uses it as filename
       const saveResponse = await fetch('/api/student/code', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -249,7 +250,7 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
           courseId,
           lessonId: lesson.id,
           files: [
-            { path: 'src/Challenge.sol', content: code }
+            { path: 'src/Challenge.sol', content: code } // Filename in request doesn't matter
           ]
         })
       })
@@ -260,14 +261,25 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
         throw new Error(saveResult.error || 'Failed to save code. Please try again.')
       }
 
-      // Step 2: Compile using saved code from DB (no files in request body)
+      // ✅ Get the actual saved filename from the save response
+      // Backend extracts contract name (e.g., "Events") and saves as "src/Events.sol"
+      const savedFile = saveResult.files?.[0]
+      const actualFilePath = savedFile?.filePath || 'src/Challenge.sol' // Fallback to default if needed
+      
+      console.log('=== SAVE RESPONSE ===')
+      console.log('saveResult.files:', saveResult.files)
+      console.log('savedFile:', savedFile)
+      console.log('actualFilePath:', actualFilePath)
+
+      // Step 2: Compile using saved code from DB with actual filename
+      // ✅ Use the actual filePath from the save response (e.g., "src/Events.sol")
       const compileResponse = await fetch('/api/student/compile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           courseId,
           lessonId: lesson.id,
-          filePath: 'src/Challenge.sol' // Optional - which file to compile
+          filePath: actualFilePath // ✅ Use actual filename from backend (e.g., "src/Events.sol")
           // Note: solc parameter is optional, backend will use default if not provided
         })
       })
@@ -293,14 +305,40 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       // ✅ UPDATED: Backend now provides reliable success flag and accurate line numbers
       // Response structure: { success, errors: [...], warnings: [...], output: {...} }
       
+      // Debug: Log the full response to understand structure
+      console.log('=== BACKEND COMPILATION RESPONSE ===')
+      console.log('result:', result)
+      console.log('result.success:', result.success)
+      console.log('result.errors:', result.errors)
+      console.log('result.errors?.length:', result.errors?.length)
+      console.log('result.warnings:', result.warnings)
+      console.log('result.warnings?.length:', result.warnings?.length)
+      console.log('result.output:', result.output)
+      
       // ✅ TRUST result.success - it's now reliable!
       // Backend checks: (exitCode === 0) && (errors.length === 0)
       const compilationSuccess = result.success === true
       
       // Extract errors and warnings directly from backend response
       // ✅ Line numbers are now accurate (extracted from formattedMessage by backend)
+      // ⚠️ CRITICAL: Always extract warnings, even if empty - backend provides them directly
       const errors: any[] = Array.isArray(result.errors) ? [...result.errors] : []
       const warnings: any[] = Array.isArray(result.warnings) ? [...result.warnings] : []
+      
+      console.log('=== EXTRACTED ARRAYS ===')
+      console.log('Extracted errors:', errors.length)
+      console.log('Extracted warnings:', warnings.length)
+      if (warnings.length > 0) {
+        console.log('First warning:', warnings[0])
+        console.log('All warnings:', warnings)
+      } else {
+        console.warn('⚠️ WARNING: No warnings found in result.warnings array!')
+        console.log('Checking result structure:', {
+          hasWarnings: 'warnings' in result,
+          warningsType: typeof result.warnings,
+          warningsValue: result.warnings
+        })
+      }
       
       // Process warnings - backend provides everything correctly formatted
       // ✅ Line numbers are accurate - use them directly
@@ -313,11 +351,11 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
           // ✅ Use line/column directly - they're accurate now
           line: warning.line ?? null,
           column: warning.column ?? null,
-          file: warning.file || 'src/Challenge.sol',
+          file: warning.file || savedFile?.filePath || 'src/Challenge.sol',
           code: warning.code || undefined,
           // Ensure sourceLocation exists for UI display (if needed for navigation)
           sourceLocation: warning.sourceLocation || (warning.line ? {
-            file: warning.file || 'src/Challenge.sol',
+            file: warning.file || savedFile?.filePath || 'src/Challenge.sol',
             start: {
               line: warning.line ?? null,
               column: warning.column ?? null
@@ -337,11 +375,11 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
           // ✅ Use line/column directly - they're accurate now
           line: error.line ?? null,
           column: error.column ?? null,
-          file: error.file || 'src/Challenge.sol',
+          file: error.file || savedFile?.filePath || 'src/Challenge.sol',
           code: error.code || undefined,
           // Ensure sourceLocation exists for UI display (if needed for navigation)
           sourceLocation: error.sourceLocation || (error.line ? {
-            file: error.file || 'src/Challenge.sol',
+            file: error.file || savedFile?.filePath || 'src/Challenge.sol',
             start: {
               line: error.line ?? null,
               column: error.column ?? null
@@ -367,14 +405,24 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
         message: message,
         output: result.output || null, // Compilation artifacts (contracts, ABI, bytecode)
         errors: processedErrors,
-        warnings: processedWarnings, // ⚠️ Always include - must be checked even on success!
+        warnings: processedWarnings, // ⚠️ CRITICAL: Always include - must be checked even on success!
         contractName: result.contractName || contractName,
         compilationTime: result.compilationTime || null,
         artifacts: result.artifacts || [],
         contracts: result.contracts || [],
         sessionId: result.sessionId || null,
-        timestamp: result.timestamp || new Date().toISOString()
+        timestamp: result.timestamp || new Date().toISOString(),
+        // ✅ Store actual file info from backend for reference
+        actualFilePath: savedFile?.filePath || actualFilePath,
+        actualFileName: savedFile?.fileName || 'Challenge.sol'
       }
+      
+      console.log('=== FINAL COMPILATION RESULT ===')
+      console.log('compilationResult.success:', compilationResult.success)
+      console.log('compilationResult.errors.length:', compilationResult.errors.length)
+      console.log('compilationResult.warnings.length:', compilationResult.warnings.length)
+      console.log('compilationResult.warnings:', compilationResult.warnings)
+      console.log('hasWarnings:', hasWarnings)
 
 
       // Update last saved code reference since we just saved
@@ -592,10 +640,11 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
           resetCode = result.initialCode
         } else if (result.files && Array.isArray(result.files) && result.files.length > 0) {
           // If files array is provided, find the main contract file
+          // ✅ Backend saves files with contract name (e.g., "Events.sol"), not "Challenge.sol"
           const mainFile = result.files.find((f: any) => 
-            f.path === 'src/Challenge.sol' || 
+            f.filePath?.endsWith('.sol') || 
             f.path?.endsWith('.sol') || 
-            f.fileName === 'src/Challenge.sol'
+            f.fileName?.endsWith('.sol')
           ) || result.files[0]
           
           resetCode = mainFile.content || mainFile.code || ''
@@ -709,8 +758,14 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
           const progressArr = data?.data?.progress || []
           const progressEntry = Array.isArray(progressArr) ? progressArr[0] : null
           const files = progressEntry?.studentFiles || data?.data?.files || data?.files || []
+          // ✅ Backend saves files with contract name (e.g., "Events.sol"), not "Challenge.sol"
+          // Find the main .sol file by checking filePath, fileName, or path
           const file = Array.isArray(files) && files.length
-            ? (files.find((f: any) => f.path === 'src/Challenge.sol' || f.fileName === 'src/Challenge.sol') || files[0])
+            ? (files.find((f: any) => 
+                f.filePath?.endsWith('.sol') || 
+                f.fileName?.endsWith('.sol') || 
+                f.path?.endsWith('.sol')
+              ) || files[0])
             : null
           const content = file?.content || progressEntry?.codeContent || data?.codeContent || null
           
@@ -1484,7 +1539,9 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                                     const columnNumber = error.column ?? null
                                     const hasLineInfo = lineNumber !== null && lineNumber !== undefined && lineNumber > 0
                                     const errorCode = error.code || error.errorCode
-                                    const fileName = error.file || error.sourceLocation?.file || 'src/Challenge.sol'
+                                    // ✅ Use actual filePath from compilation result if available
+                                    const actualFile = outputContent.content.actualFilePath || 'src/Challenge.sol'
+                                    const fileName = error.file || error.sourceLocation?.file || actualFile
                                     
                                     return (
                                       <div key={index} className="bg-red-50 dark:bg-red-900 p-3 rounded-lg space-y-2">
@@ -1586,7 +1643,20 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                           {(() => {
                             // ✅ Warnings are always in content.warnings (set by handleCompile)
                             const warningsArray = outputContent.content.warnings || []
-                            return Array.isArray(warningsArray) && warningsArray.length > 0
+                            const hasWarnings = Array.isArray(warningsArray) && warningsArray.length > 0
+                            
+                            // Debug logging to trace warning display
+                            if (process.env.NODE_ENV === 'development') {
+                              console.log('=== RENDERING WARNINGS CHECK ===')
+                              console.log('outputContent.content:', outputContent.content)
+                              console.log('outputContent.content.warnings:', outputContent.content.warnings)
+                              console.log('warningsArray:', warningsArray)
+                              console.log('warningsArray.length:', warningsArray.length)
+                              console.log('hasWarnings:', hasWarnings)
+                              console.log('content.success:', outputContent.content.success)
+                            }
+                            
+                            return hasWarnings
                           })() && (
                             <div className="space-y-2 mt-4">
                               {(() => {
@@ -1607,7 +1677,9 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                                 const columnNumber = warning.column ?? null
                                 const hasLineInfo = lineNumber !== null && lineNumber !== undefined && lineNumber > 0
                                 const warningCode = warning.code || warning.errorCode
-                                const fileName = warning.file || warning.sourceLocation?.file || 'src/Challenge.sol'
+                                // ✅ Use actual filePath from compilation result if available
+                                const actualFile = outputContent.content.actualFilePath || 'src/Challenge.sol'
+                                const fileName = warning.file || warning.sourceLocation?.file || actualFile
                                 
                                 return (
                                   <div 
