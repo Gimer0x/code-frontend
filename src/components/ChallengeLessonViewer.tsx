@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
+import { useSession } from 'next-auth/react'
 import remarkGfm from 'remark-gfm'
 import SolidityEditor from './SolidityEditor'
 import { useStudentProgress } from '@/hooks/useStudentProgress'
@@ -27,6 +28,10 @@ interface Lesson {
     currentIndex: number
     totalLessons: number
     nextLesson?: {
+      id: string
+      title: string
+    }
+    previousLesson?: {
       id: string
       title: string
     }
@@ -77,6 +82,8 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null)
   const lastSavedCodeRef = useRef<string>('')
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const { data: authSession, status: authStatus } = useSession()
+  const [loadedFromDB, setLoadedFromDB] = useState<boolean>(false)
   const [chatInput, setChatInput] = useState('')
   const [isLoadingChat, setIsLoadingChat] = useState(false)
   const [hasActiveSubscription, setHasActiveSubscription] = useState<boolean | null>(null)
@@ -640,32 +647,68 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
   }, [chatMessages, isLoadingChat])
 
   // Load student code from DB (via progress) or fall back to initial lesson code
+  // Strategy: Always try DB first, only use lesson.initialCode if DB returns null/empty/fails
   useEffect(() => {
     let cancelled = false
     const loadStudentCode = async () => {
+      // Always try DB first, even for anonymous users (they'll get 401/404 which is fine)
       try {
         const res = await fetch(`/api/student/progress?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(lesson.id)}`)
-        if (!res.ok) return
-        const data = await res.json()
-        const progressArr = data?.data?.progress || []
-        const progressEntry = Array.isArray(progressArr) ? progressArr[0] : null
-        const files = progressEntry?.studentFiles || data?.data?.files || data?.files || []
-        const file = Array.isArray(files) && files.length
-          ? (files.find((f: any) => f.path === 'src/Challenge.sol' || f.fileName === 'src/Challenge.sol') || files[0])
-          : null
-        const content = file?.content || progressEntry?.codeContent || null
-        if (!cancelled && content) {
-          setCode(content)
-          lastSavedCodeRef.current = content
-        } else if (!cancelled && lesson.initialCode) {
-          setCode(lesson.initialCode)
-          lastSavedCodeRef.current = lesson.initialCode
+        
+        // If authenticated but not ready yet, retry shortly
+        if (res.status === 401 && authStatus === 'loading') {
+          setTimeout(() => loadStudentCode(), 300)
+          return
         }
-      } catch {}
+        
+        // If request was successful, parse the response
+        if (res.ok) {
+          const data = await res.json()
+          const progressArr = data?.data?.progress || []
+          const progressEntry = Array.isArray(progressArr) ? progressArr[0] : null
+          const files = progressEntry?.studentFiles || data?.data?.files || data?.files || []
+          const file = Array.isArray(files) && files.length
+            ? (files.find((f: any) => f.path === 'src/Challenge.sol' || f.fileName === 'src/Challenge.sol') || files[0])
+            : null
+          const content = file?.content || progressEntry?.codeContent || data?.codeContent || null
+          
+          // If we got valid saved code from DB, use it
+          if (!cancelled && typeof content === 'string' && content.length > 0) {
+            setCode(content)
+            lastSavedCodeRef.current = content
+            setLoadedFromDB(true)
+            setIsLoadingCode(false)
+            return
+          }
+          // If DB response was OK but no code content (null/empty), fall back to initial
+        }
+        
+        // If DB returned 401/404/500 or returned empty content, fall back to initial code
+        // This covers: unauthenticated users, no saved code, or any error
+        if (!cancelled) {
+          const initialCode = lesson.initialCode || getDefaultSolidityTemplate()
+          setCode(initialCode)
+          lastSavedCodeRef.current = initialCode
+          setLoadedFromDB(false)
+          setIsLoadingCode(false)
+        }
+      } catch (error) {
+        // Network error or any exception: fall back to initial code
+        if (!cancelled) {
+          const initialCode = lesson.initialCode || getDefaultSolidityTemplate()
+          setCode(initialCode)
+          lastSavedCodeRef.current = initialCode
+          setLoadedFromDB(false)
+          setIsLoadingCode(false)
+        }
+      }
     }
+    
+    // Start loading immediately
     loadStudentCode()
+    
     return () => { cancelled = true }
-  }, [courseId, lesson.id])
+  }, [courseId, lesson.id, lesson.initialCode, authStatus])
 
   // Autosave removed per request
 
@@ -749,43 +792,7 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
     }
   }
 
-  // Load user progress and initialize project on component mount
-  useEffect(() => {
-    const loadProgressAndInitialize = async () => {
-      try {
-        // For authenticated users, wait for progress to load before setting code
-        if (session?.user?.id) {
-          // Don't set code here - let the progress loading handle it
-          Promise.all([
-          ])
-        } else {
-          // For anonymous users, use initial code immediately
-          setCode(lesson.initialCode || getDefaultSolidityTemplate())
-          setIsLoadingCode(false)
-        }
-        
-      } catch (error) {
-        // Fallback to admin's initial code on error
-        setCode(lesson.initialCode || getDefaultSolidityTemplate())
-        setIsLoadingCode(false)
-      }
-    }
-    loadProgressAndInitialize()
-  }, [courseId, lesson.id]) // Removed session dependency to prevent re-running on login
-
-  // Load saved code when progress data is available, or initial code if no progress
-  useEffect(() => {
-    if (session?.user?.id) {
-      if (studentProgress?.codeContent) {
-        setCode(studentProgress.codeContent)
-        setIsLoadingCode(false)
-      } else if (studentProgress !== null && !progressLoading) {
-        // Progress loaded but no saved code, use initial code
-        setCode(lesson.initialCode || getDefaultSolidityTemplate())
-        setIsLoadingCode(false)
-      }
-    }
-  }, [studentProgress?.codeContent, studentProgress, progressLoading, session?.user?.id, lesson.initialCode])
+  // Removed competing useEffect hooks - code loading is now handled by the single effect above
 
   useEffect(() => {
     // Trigger resize when panel states change with immediate response

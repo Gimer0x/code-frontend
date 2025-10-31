@@ -33,7 +33,11 @@ export async function googleLoginWithIdToken(idToken: string) {
 
 export async function getProfile() {
   const res = await apiFetch('/api/auth/profile')
-  return res.json()
+  const text = await res.text()
+  let data: any = null
+  try { data = text ? JSON.parse(text) : null } catch { data = { error: text } }
+  if (!res.ok) return { success: false, ...(typeof data === 'object' ? data : { error: text || 'Request failed' }) }
+  return data
 }
 
 
