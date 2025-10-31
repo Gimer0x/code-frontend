@@ -646,22 +646,16 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
     }
   }, [chatMessages, isLoadingChat])
 
-  // Load student code from DB (via progress) or fall back to initial lesson code
-  // Strategy: Always try DB first, only use lesson.initialCode if DB returns null/empty/fails
+  // ALWAYS check DB first for saved code, only fall back to initial code if DB returns null/empty/fails
   useEffect(() => {
     let cancelled = false
+    
     const loadStudentCode = async () => {
-      // Always try DB first, even for anonymous users (they'll get 401/404 which is fine)
       try {
+        // ALWAYS check DB first - wait for response before showing any code
         const res = await fetch(`/api/student/progress?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(lesson.id)}`)
         
-        // If authenticated but not ready yet, retry shortly
-        if (res.status === 401 && authStatus === 'loading') {
-          setTimeout(() => loadStudentCode(), 300)
-          return
-        }
-        
-        // If request was successful, parse the response
+        // If DB request succeeded, check for saved code
         if (res.ok) {
           const data = await res.json()
           const progressArr = data?.data?.progress || []
@@ -672,7 +666,7 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
             : null
           const content = file?.content || progressEntry?.codeContent || data?.codeContent || null
           
-          // If we got valid saved code from DB, use it
+          // If DB has saved code, use it
           if (!cancelled && typeof content === 'string' && content.length > 0) {
             setCode(content)
             lastSavedCodeRef.current = content
@@ -680,11 +674,9 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
             setIsLoadingCode(false)
             return
           }
-          // If DB response was OK but no code content (null/empty), fall back to initial
         }
         
-        // If DB returned 401/404/500 or returned empty content, fall back to initial code
-        // This covers: unauthenticated users, no saved code, or any error
+        // If DB returned 401/404/500 or no saved code, use initial code
         if (!cancelled) {
           const initialCode = lesson.initialCode || getDefaultSolidityTemplate()
           setCode(initialCode)
@@ -693,7 +685,7 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
           setIsLoadingCode(false)
         }
       } catch (error) {
-        // Network error or any exception: fall back to initial code
+        // Network error: fall back to initial code
         if (!cancelled) {
           const initialCode = lesson.initialCode || getDefaultSolidityTemplate()
           setCode(initialCode)
@@ -704,11 +696,11 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       }
     }
     
-    // Start loading immediately
+    // Start DB check immediately - don't show code until DB check completes
     loadStudentCode()
     
     return () => { cancelled = true }
-  }, [courseId, lesson.id, lesson.initialCode, authStatus])
+  }, [courseId, lesson.id, lesson.initialCode])
 
   // Autosave removed per request
 
