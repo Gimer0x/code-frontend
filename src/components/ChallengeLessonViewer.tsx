@@ -290,183 +290,72 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       const contractName = contractNameMatch ? contractNameMatch[1] : 'Challenge'
 
       // Process the backend response format
-      // The backend may return the compilation result in stdout as a JSON string
-      let backendResult: any = {}
-      let parsedOutput: any = null
-
-      if (result.result?.stdout) {
-        try {
-          // Parse the JSON string from stdout
-          parsedOutput = JSON.parse(result.result.stdout)
-          
-          // Extract errors and warnings from parsed output
-          // Note: Warnings might be in errors array with severity: 'warning'
-          const allItems = parsedOutput.errors || []
-          
-          // Separate warnings from actual errors
-          const actualErrors: any[] = []
-          const actualWarnings: any[] = []
-          
-          // First, collect warnings from errors array
-          allItems.forEach((item: any) => {
-            const severity = (item.severity || item.type || '').toLowerCase()
-            const isWarning = severity.includes('warning') || item.type === 'Warning' || item.type === 'warning'
-            
-            if (isWarning) {
-              actualWarnings.push(item)
-            } else {
-              actualErrors.push(item)
-            }
-          })
-          
-          // Then, add warnings from dedicated warnings array (avoid duplicates)
-          const existingWarningKeys = new Set(
-            actualWarnings.map((w: any) => 
-              `${w.sourceLocation?.file || w.file || ''}:${w.sourceLocation?.start?.line || w.line || ''}:${w.message || ''}`
-            )
-          )
-          
-          if (parsedOutput.warnings && Array.isArray(parsedOutput.warnings)) {
-            parsedOutput.warnings.forEach((warning: any) => {
-              const warningKey = `${warning.sourceLocation?.file || warning.file || ''}:${warning.sourceLocation?.start?.line || warning.line || ''}:${warning.message || ''}`
-              if (!existingWarningKeys.has(warningKey)) {
-                actualWarnings.push(warning)
-                existingWarningKeys.add(warningKey)
-              }
-            })
-          }
-          
-          backendResult = {
-            errors: actualErrors,  // Only actual errors, no warnings
-            warnings: actualWarnings,  // Only warnings, no errors
-            output: result.result.stdout,
-            ...parsedOutput
-          }
-        } catch (parseError) {
-          console.error('Failed to parse stdout JSON:', parseError)
-          // Fallback: use the result structure as-is
-          backendResult = result.result || {}
-        }
-      } else {
-        // Fallback: use result structure directly
-        backendResult = result.result || result || {}
+      // New simplified structure: { success, errors: [...], warnings: [...], output: {...} }
+      // Backend already separates errors and warnings by severity
+      
+      console.log('=== BACKEND RESPONSE ===')
+      console.log('result.success:', result.success)
+      console.log('result.errors:', result.errors)
+      console.log('result.errors.length:', result.errors?.length)
+      console.log('result.warnings:', result.warnings)
+      console.log('result.warnings.length:', result.warnings?.length)
+      
+      // Backend provides errors and warnings directly in the response
+      // Extract directly from result.errors and result.warnings
+      const errors: any[] = Array.isArray(result.errors) ? [...result.errors] : []
+      const warnings: any[] = Array.isArray(result.warnings) ? [...result.warnings] : []
+      
+      console.log('Extracted errors:', errors.length)
+      console.log('Extracted warnings:', warnings.length)
+      if (warnings.length > 0) {
+        console.log('First warning:', warnings[0])
       }
-
-      const compilationSuccess = result.success !== undefined ? result.success : (backendResult.success !== undefined ? backendResult.success : false)
       
-      // Extract warnings and errors - ensure warnings never appear in errors
-      let warnings: any[] = backendResult.warnings || result.warnings || []
-      let errors: any[] = []
+      // CRITICAL: success: true can still have warnings!
+      // Check result.success directly - backend sets it correctly
+      const compilationSuccess = result.success === true
       
-      // Process all items from errors array - separate warnings from errors
-      const allErrorItems = backendResult.errors || result.errors || []
-      const warningKeys = new Set(
-        warnings.map((w: any) => 
-          `${w.sourceLocation?.file || w.file || ''}:${w.sourceLocation?.start?.line || w.line || ''}:${w.message || ''}`
-        )
-      )
-      
-      allErrorItems.forEach((item: any) => {
-        // Check if this is a warning
-        const severity = (item.severity || item.type || '').toLowerCase()
-        const isWarning = severity.includes('warning') || item.type === 'Warning' || item.type === 'warning'
-        
-        if (isWarning) {
-          // It's a warning - add to warnings if not duplicate
-          const warningKey = `${item.sourceLocation?.file || item.file || ''}:${item.sourceLocation?.start?.line || item.line || ''}:${item.message || ''}`
-          if (!warningKeys.has(warningKey)) {
-            warnings.push(item)
-            warningKeys.add(warningKey)
-          }
-        } else {
-          // It's an actual error - add to errors
-          errors.push(item)
-        }
-      })
-      
-
       // Process warnings to ensure consistent structure
+      // Backend already provides: { type, code, message, file, line, column, severity, source }
       const processedWarnings = warnings.map((warning: any) => {
-        // Extract location from sourceLocation if present
-        const sourceLoc = warning.sourceLocation || {}
-        const start = sourceLoc.start || {}
-        
         return {
           ...warning,
           type: warning.type || 'compilation_warning',
-          severity: warning.severity || warning.type || 'warning',
-          message: warning.message || warning.formattedMessage || 'Unknown warning',
-          line: warning.line || start.line || sourceLoc.line || 0,
-          column: warning.column || start.column || sourceLoc.column || 0,
-          file: warning.file || sourceLoc.file || sourceLoc.fileName || 'Unknown',
-          code: warning.errorCode || warning.code || undefined,
-          sourceLocation: warning.sourceLocation || (warning.line || start.line ? {
-            file: warning.file || sourceLoc.file || sourceLoc.fileName || 'Unknown',
+          severity: warning.severity || 'warning',
+          message: warning.message || 'Unknown warning',
+          line: warning.line || 0,
+          column: warning.column || 0,
+          file: warning.file || 'Unknown',
+          code: warning.code || undefined,
+          // Ensure sourceLocation exists for UI display
+          sourceLocation: warning.sourceLocation || (warning.line ? {
+            file: warning.file || 'Unknown',
             start: {
-              line: warning.line || start.line || 0,
-              column: warning.column || start.column || 0
+              line: warning.line || 0,
+              column: warning.column || 0
             }
           } : undefined)
         }
       })
 
       // Process errors with detailed information
+      // Backend already provides: { type, code, message, file, line, column, severity, source }
       const processedErrors = errors.map((error: any) => {
-        // Extract location from sourceLocation if present
-        const sourceLoc = error.sourceLocation || {}
-        const start = sourceLoc.start || {}
-        
-        // Try multiple ways to get line number
-        const lineNumber = error.line !== undefined && error.line !== null 
-          ? error.line 
-          : (start.line !== undefined && start.line !== null 
-            ? start.line 
-            : (sourceLoc.line !== undefined && sourceLoc.line !== null
-              ? sourceLoc.line
-              : null))
-        
-        // Try multiple ways to get column number
-        const columnNumber = error.column !== undefined && error.column !== null
-          ? error.column
-          : (start.column !== undefined && start.column !== null
-            ? start.column
-            : (sourceLoc.column !== undefined && sourceLoc.column !== null
-              ? sourceLoc.column
-              : 0))
-        
-        // Try multiple ways to get file name
-        const fileName = error.file 
-          || sourceLoc.file 
-          || sourceLoc.fileName 
-          || error.fileName
-          || (sourceLoc && typeof sourceLoc === 'object' && Object.keys(sourceLoc).find(k => k.toLowerCase().includes('file')))
-          || 'Unknown'
-        
-        // Try multiple ways to get error code
-        const errorCode = error.errorCode 
-          || error.code 
-          || error.error_code
-          || (typeof error.formattedMessage === 'string' && error.formattedMessage.match(/error\s+(\w+):/i)?.[1])
-          || undefined
-        
-        // Preserve formattedMessage if available
-        const formattedMessage = error.formattedMessage || error.message
-        
         return {
           ...error,
           type: error.type || 'compilation_error',
-          severity: error.severity || error.type || 'error',
-          message: error.message || formattedMessage || 'Unknown compilation error',
-          formattedMessage: formattedMessage,
-          line: lineNumber,
-          column: columnNumber,
-          file: fileName,
-          code: errorCode,
-          sourceLocation: error.sourceLocation || (lineNumber !== null ? {
-            file: fileName,
+          severity: error.severity || 'error',
+          message: error.message || 'Unknown compilation error',
+          line: error.line || 0,
+          column: error.column || 0,
+          file: error.file || 'Unknown',
+          code: error.code || undefined,
+          // Ensure sourceLocation exists for UI display
+          sourceLocation: error.sourceLocation || (error.line ? {
+            file: error.file || 'Unknown',
             start: {
-              line: lineNumber,
-              column: columnNumber
+              line: error.line || 0,
+              column: error.column || 0
             }
           } : undefined),
           suggestions: getErrorSuggestions(error)
@@ -479,6 +368,13 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       
       // Ensure we always show warnings count if there are any
       const hasWarnings = processedWarnings.length > 0
+      
+      console.log('=== FINAL COMPILATION RESULT ===')
+      console.log('processedWarnings.length:', processedWarnings.length)
+      console.log('processedErrors.length:', processedErrors.length)
+      console.log('isSuccessful:', isSuccessful)
+      console.log('hasWarnings:', hasWarnings)
+      
       const message = isSuccessful
         ? (hasWarnings 
             ? `Compilation completed with ${processedWarnings.length} warning(s)` 
@@ -488,16 +384,23 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       const compilationResult = {
         success: isSuccessful,
         message: message,
-        output: backendResult.output || result.output,
+        output: result.output || null, // Compilation artifacts (contracts, ABI, bytecode)
         errors: processedErrors,
         warnings: processedWarnings, // Always include warnings array, even if empty
-        contractName: result.contractName || backendResult.contractName || contractName,
-        compilationTime: backendResult.compilationTime || result.compilationTime,
-        artifacts: backendResult.artifacts || result.artifacts || [],
-        contracts: backendResult.contracts || result.contracts || [],
+        contractName: result.contractName || contractName,
+        compilationTime: result.compilationTime || null,
+        artifacts: result.artifacts || [],
+        contracts: result.contracts || [],
         sessionId: result.sessionId || null,
         timestamp: result.timestamp || new Date().toISOString()
       }
+      
+      console.log('=== FINAL COMPILATION RESULT ===')
+      console.log('success:', compilationResult.success)
+      console.log('errors.length:', compilationResult.errors.length)
+      console.log('warnings.length:', compilationResult.warnings.length)
+      console.log('hasWarnings:', hasWarnings)
+      console.log('message:', message)
 
 
       // Update last saved code reference since we just saved
