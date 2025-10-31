@@ -61,50 +61,19 @@ export default function AdminTestButton({
     setIsTesting(true)
 
     try {
-      // Call backend testing endpoint directly
-      const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
-      
-      // Get admin JWT token for backend call
-      let adminToken = null
-      try {
-        const loginResponse = await fetch(`${backendUrl}/api/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: 'admin@dappdojo.com',
-            password: 'admin123'
-          })
-        })
-        
-        if (loginResponse.ok) {
-          const loginData = await loginResponse.json()
-          adminToken = loginData.accessToken
-        } else {
-          console.error('Failed to get admin token:', await loginResponse.text())
-        }
-      } catch (loginError) {
-        console.error('Admin login error:', loginError)
-      }
-      
-      if (!adminToken) {
-        throw new Error('Unable to get admin authentication token for testing')
-      }
-
       // Extract contract name from solution code
       const contractNameMatch = solutionCode.match(/contract\s+(\w+)/)
       const contractName = contractNameMatch ? contractNameMatch[1] : 'TestContract'
 
-      const response = await fetch(`${backendUrl}/api/test`, {
+      // Use frontend proxy which authenticates via the user's session
+      const response = await fetch('/api/admin/test', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          courseId,
-          code: solutionCode.trim(),
+          solutionCode: solutionCode.trim(),
           testCode: testCode.trim(),
-          contractName
+          contractName,
+          courseId
         })
       })
 
@@ -112,9 +81,32 @@ export default function AdminTestButton({
         const errorData = await response.json()
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
-
-      const result: BackendTestResult = await response.json()
-      onTestResult(result)
+      const data = await response.json()
+      const testsArray = Array.isArray(data.results) ? data.results : []
+      const mapped: BackendTestResult = {
+        success: Boolean(data.success),
+        result: {
+          success: Boolean(data.success),
+          tests: testsArray.map((r: any) => ({
+            name: r.name,
+            status: r.status === 'pass' ? 'passed' : 'failed',
+            gasUsed: r.gasUsed || 0,
+            duration: '0ms',
+            error: r.status === 'fail' ? r.message : undefined
+          })),
+          summary: {
+            total: data.testCount ?? testsArray.length,
+            passed: data.passedCount ?? testsArray.filter((r: any) => r.status === 'pass').length,
+            failed: data.failedCount ?? testsArray.filter((r: any) => r.status !== 'pass').length,
+          },
+          timestamp: new Date().toISOString()
+        },
+        courseId: courseId || 'default-course',
+        contractName,
+        testFileName: `${contractName}.t.sol`,
+        timestamp: new Date().toISOString()
+      }
+      onTestResult(mapped)
 
     } catch (error: any) {
       console.error('Test execution error:', error)
