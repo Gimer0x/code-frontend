@@ -7,6 +7,7 @@ import { authService } from '@/lib/auth-service'
 import AdminRoute from '@/components/AdminRoute'
 import Link from 'next/link'
 import ImageUpload from '@/components/ImageUpload'
+import { normalizeImageUrl } from '@/lib/imageUtils'
 import CodeEditor from '@/components/CodeEditor'
 import CompileButton, { CompilationResultDisplay } from '@/components/CompileButton'
 import AdminTestButton from '@/components/AdminTestButton'
@@ -542,11 +543,7 @@ export default function EditCourse() {
         setCourseStatus(courseData.status.toLowerCase())
         // Normalize thumbnail to same-origin proxy so it doesn't resolve relative to the route
         const thumb = courseData.thumbnail || null
-        setCourseThumbnail(
-          thumb
-            ? (thumb.startsWith('/api/images/') ? thumb : `/api/images/${thumb.replace(/^\//, '')}`)
-            : null
-        )
+        setCourseThumbnail(thumb ? normalizeImageUrl(thumb) : null)
         
         // Process modules and lessons to ensure proper format
         const processedModules = (courseData.modules || []).map((module: any) => ({
@@ -742,7 +739,9 @@ export default function EditCourse() {
       const data = await response.json()
 
       if (data.success) {
-        const previewUrl = data.imagePath ? `/api/images/${data.imagePath}` : (data.url || '')
+        // Normalize the image URL to use the frontend proxy
+        const imageUrl = data.imagePath || data.url || data.thumbnail || data.imageUrl || data.path || ''
+        const previewUrl = imageUrl ? normalizeImageUrl(imageUrl) : ''
         setCourseThumbnail(previewUrl)
         setHasUnsavedChanges(true)
         setThumbnailError(null)

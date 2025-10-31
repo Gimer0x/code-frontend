@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { validateImage } from '@/lib/imageUtils'
+import { validateImage, normalizeImageUrl } from '@/lib/imageUtils'
 
 interface CourseThumbnailUploadProps {
   onImageUpload: (url: string) => void
@@ -70,18 +70,14 @@ export default function CourseThumbnailUpload({
     const data = await response.json()
     
     // Handle different possible response structures
-    let imageUrl = data.url || data.imagePath || data.thumbnail || data.imageUrl || data.path
+    const imageUrl = data.url || data.imagePath || data.thumbnail || data.imageUrl || data.path
     
     if (!imageUrl) {
       throw new Error('No image URL returned from server')
     }
     
-    // If it's a relative path, convert to frontend proxy URL
-    if (imageUrl.startsWith('uploads/')) {
-      imageUrl = `/api/images/${imageUrl}`
-    }
-    
-    return imageUrl
+    // Normalize the image URL to use the frontend proxy
+    return normalizeImageUrl(imageUrl) || imageUrl
   }
 
   const handleFile = async (file: File) => {

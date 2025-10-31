@@ -45,3 +45,55 @@ export function generateThumbnailFilename(originalName: string): string {
 export function getThumbnailUrl(filename: string): string {
   return `/uploads/thumbnails/${filename}`
 }
+
+/**
+ * Normalizes image URLs from backend responses to use the frontend proxy
+ * Handles various formats:
+ * - `uploads/courses/...` -> `/api/images/uploads/courses/...`
+ * - `http://uploads/...` -> `/api/images/uploads/...`
+ * - `http://localhost:3002/uploads/...` -> `/api/images/uploads/...`
+ * - Already normalized `/api/images/...` -> unchanged
+ */
+export function normalizeImageUrl(imageUrl: string | null | undefined): string | null {
+  if (!imageUrl) return null
+  
+  // Already using the proxy, return as-is
+  if (imageUrl.startsWith('/api/images/')) {
+    return imageUrl
+  }
+  
+  // Remove protocol if present (http:// or https://)
+  let normalized = imageUrl.replace(/^https?:\/\//, '')
+  
+  // Remove domain if present (e.g., localhost:3002/)
+  normalized = normalized.replace(/^[^\/]+\//, '')
+  
+  // Remove leading slash if present
+  normalized = normalized.replace(/^\//, '')
+  
+  // Ensure it starts with 'uploads/'
+  if (!normalized.startsWith('uploads/')) {
+    // If it starts with 'courses/', prepend 'uploads/'
+    if (normalized.startsWith('courses/')) {
+      normalized = `uploads/${normalized}`
+    } else {
+      // Try to extract the path - look for 'uploads/' in the string
+      const uploadsIndex = normalized.indexOf('uploads/')
+      if (uploadsIndex !== -1) {
+        normalized = normalized.substring(uploadsIndex)
+      } else {
+        // If no uploads path found, try to infer from common patterns
+        // If it looks like a filename with extension, assume it's in uploads/courses/
+        if (normalized.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
+          normalized = `uploads/courses/${normalized}`
+        } else {
+          // Fallback: if it's a path without extension, assume uploads/courses/
+          normalized = `uploads/courses/${normalized}`
+        }
+      }
+    }
+  }
+  
+  // Convert to proxy URL
+  return `/api/images/${normalized}`
+}

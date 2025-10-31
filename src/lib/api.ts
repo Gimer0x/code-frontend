@@ -150,8 +150,11 @@ class DappDojoAPI {
   // Helper method to get image URL (relative for Next.js proxy)
   getImageUrl(thumbnail: string | null): string | null {
     if (!thumbnail) return null;
-    // Return relative URL so Next.js can proxy it to backend
-    return `/${thumbnail}`;
+    
+    // Normalize the URL to use the frontend proxy
+    // Import normalizeImageUrl dynamically to avoid circular dependencies
+    const { normalizeImageUrl } = require('@/lib/imageUtils');
+    return normalizeImageUrl(thumbnail);
   }
 }
 

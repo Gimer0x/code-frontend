@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { normalizeImageUrl } from '@/lib/imageUtils'
 
 interface Course {
   id: string
@@ -227,9 +228,7 @@ export default function CourseManagementDashboard({ courses, onRefresh }: Course
                 </div>
                 {course.thumbnail && (
                   <img
-                    src={course.thumbnail.startsWith('/api/images/')
-                      ? course.thumbnail
-                      : `/api/images/${course.thumbnail.replace(/^\//, '')}`}
+                    src={normalizeImageUrl(course.thumbnail) || course.thumbnail}
                     alt={course.title}
                     className="w-16 h-16 rounded-lg object-cover"
                   />
