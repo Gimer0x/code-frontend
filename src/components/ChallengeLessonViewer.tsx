@@ -290,103 +290,84 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       const contractName = contractNameMatch ? contractNameMatch[1] : 'Challenge'
 
       // Process the backend response format
-      // New simplified structure: { success, errors: [...], warnings: [...], output: {...} }
-      // Backend already separates errors and warnings by severity
+      // ✅ UPDATED: Backend now provides reliable success flag and accurate line numbers
+      // Response structure: { success, errors: [...], warnings: [...], output: {...} }
       
-      console.log('=== BACKEND RESPONSE ===')
-      console.log('result.success:', result.success)
-      console.log('result.errors:', result.errors)
-      console.log('result.errors.length:', result.errors?.length)
-      console.log('result.warnings:', result.warnings)
-      console.log('result.warnings.length:', result.warnings?.length)
+      // ✅ TRUST result.success - it's now reliable!
+      // Backend checks: (exitCode === 0) && (errors.length === 0)
+      const compilationSuccess = result.success === true
       
-      // Backend provides errors and warnings directly in the response
-      // Extract directly from result.errors and result.warnings
+      // Extract errors and warnings directly from backend response
+      // ✅ Line numbers are now accurate (extracted from formattedMessage by backend)
       const errors: any[] = Array.isArray(result.errors) ? [...result.errors] : []
       const warnings: any[] = Array.isArray(result.warnings) ? [...result.warnings] : []
       
-      console.log('Extracted errors:', errors.length)
-      console.log('Extracted warnings:', warnings.length)
-      if (warnings.length > 0) {
-        console.log('First warning:', warnings[0])
-      }
-      
-      // CRITICAL: success: true can still have warnings!
-      // Check result.success directly - backend sets it correctly
-      const compilationSuccess = result.success === true
-      
-      // Process warnings to ensure consistent structure
-      // Backend already provides: { type, code, message, file, line, column, severity, source }
+      // Process warnings - backend provides everything correctly formatted
+      // ✅ Line numbers are accurate - use them directly
       const processedWarnings = warnings.map((warning: any) => {
         return {
           ...warning,
           type: warning.type || 'compilation_warning',
           severity: warning.severity || 'warning',
           message: warning.message || 'Unknown warning',
-          line: warning.line || 0,
-          column: warning.column || 0,
-          file: warning.file || 'Unknown',
+          // ✅ Use line/column directly - they're accurate now
+          line: warning.line ?? null,
+          column: warning.column ?? null,
+          file: warning.file || 'src/Challenge.sol',
           code: warning.code || undefined,
-          // Ensure sourceLocation exists for UI display
+          // Ensure sourceLocation exists for UI display (if needed for navigation)
           sourceLocation: warning.sourceLocation || (warning.line ? {
-            file: warning.file || 'Unknown',
+            file: warning.file || 'src/Challenge.sol',
             start: {
-              line: warning.line || 0,
-              column: warning.column || 0
+              line: warning.line ?? null,
+              column: warning.column ?? null
             }
           } : undefined)
         }
       })
 
-      // Process errors with detailed information
-      // Backend already provides: { type, code, message, file, line, column, severity, source }
+      // Process errors - backend provides everything correctly formatted
+      // ✅ Line numbers are accurate - use them directly
       const processedErrors = errors.map((error: any) => {
         return {
           ...error,
           type: error.type || 'compilation_error',
           severity: error.severity || 'error',
           message: error.message || 'Unknown compilation error',
-          line: error.line || 0,
-          column: error.column || 0,
-          file: error.file || 'Unknown',
+          // ✅ Use line/column directly - they're accurate now
+          line: error.line ?? null,
+          column: error.column ?? null,
+          file: error.file || 'src/Challenge.sol',
           code: error.code || undefined,
-          // Ensure sourceLocation exists for UI display
+          // Ensure sourceLocation exists for UI display (if needed for navigation)
           sourceLocation: error.sourceLocation || (error.line ? {
-            file: error.file || 'Unknown',
+            file: error.file || 'src/Challenge.sol',
             start: {
-              line: error.line || 0,
-              column: error.column || 0
+              line: error.line ?? null,
+              column: error.column ?? null
             }
           } : undefined),
           suggestions: getErrorSuggestions(error)
         }
       })
 
-      // Create the result in the expected format
-      // Determine success: if no errors, consider it successful (even with warnings)
-      const isSuccessful = compilationSuccess && processedErrors.length === 0
-      
-      // Ensure we always show warnings count if there are any
+      // ✅ Trust compilationSuccess - it matches result.success
       const hasWarnings = processedWarnings.length > 0
+      const hasErrors = processedErrors.length > 0
       
-      console.log('=== FINAL COMPILATION RESULT ===')
-      console.log('processedWarnings.length:', processedWarnings.length)
-      console.log('processedErrors.length:', processedErrors.length)
-      console.log('isSuccessful:', isSuccessful)
-      console.log('hasWarnings:', hasWarnings)
-      
-      const message = isSuccessful
+      // Build success message
+      const message = compilationSuccess
         ? (hasWarnings 
             ? `Compilation completed with ${processedWarnings.length} warning(s)` 
             : 'Compilation completed')
         : `Compilation failed with ${processedErrors.length} error(s)`
       
       const compilationResult = {
-        success: isSuccessful,
+        success: compilationSuccess, // ✅ Trust this - it's reliable
         message: message,
         output: result.output || null, // Compilation artifacts (contracts, ABI, bytecode)
         errors: processedErrors,
-        warnings: processedWarnings, // Always include warnings array, even if empty
+        warnings: processedWarnings, // ⚠️ Always include - must be checked even on success!
         contractName: result.contractName || contractName,
         compilationTime: result.compilationTime || null,
         artifacts: result.artifacts || [],
@@ -394,13 +375,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
         sessionId: result.sessionId || null,
         timestamp: result.timestamp || new Date().toISOString()
       }
-      
-      console.log('=== FINAL COMPILATION RESULT ===')
-      console.log('success:', compilationResult.success)
-      console.log('errors.length:', compilationResult.errors.length)
-      console.log('warnings.length:', compilationResult.warnings.length)
-      console.log('hasWarnings:', hasWarnings)
-      console.log('message:', message)
 
 
       // Update last saved code reference since we just saved
@@ -1434,8 +1408,9 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                             const content = outputContent.content
                             const hasErrors = content.errors && Array.isArray(content.errors) && content.errors.length > 0
                             const hasWarnings = content.warnings && Array.isArray(content.warnings) && content.warnings.length > 0
-                            // Consider successful if success is explicitly true, or if success is not false and there are no errors
-                            const isSuccess = content.success === true || (content.success !== false && !hasErrors)
+                            // ✅ TRUST content.success - it's now reliable!
+                            // Backend checks: (exitCode === 0) && (errors.length === 0)
+                            const isSuccess = content.success === true
                             
                             if (isSuccess) {
                               return (
@@ -1503,11 +1478,13 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                                     const severity = (error.severity || error.type || '').toLowerCase()
                                     return !severity.includes('warning') && error.type !== 'Warning'
                                   }).map((error: any, index: number) => {
-                                    const hasLineInfo = error.line !== undefined && error.line !== null
-                                    const lineNumber = error.line || 0
-                                    const columnNumber = error.column || 0
+                                    // ✅ Use line/column directly - they're now accurate!
+                                    // Backend extracts them correctly from formattedMessage
+                                    const lineNumber = error.line ?? null
+                                    const columnNumber = error.column ?? null
+                                    const hasLineInfo = lineNumber !== null && lineNumber !== undefined && lineNumber > 0
                                     const errorCode = error.code || error.errorCode
-                                    const fileName = error.file || error.sourceLocation?.file || error.sourceLocation?.fileName
+                                    const fileName = error.file || error.sourceLocation?.file || 'src/Challenge.sol'
                                     
                                     return (
                                       <div key={index} className="bg-red-50 dark:bg-red-900 p-3 rounded-lg space-y-2">
@@ -1605,14 +1582,16 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                             }
                           })()}
                           
-                          {/* Always show warnings if they exist */}
+                          {/* ⚠️ CRITICAL: Always show warnings if they exist - even on success! */}
                           {(() => {
-                            const warningsArray = outputContent.content.warnings || outputContent.content.result?.warnings || []
+                            // ✅ Warnings are always in content.warnings (set by handleCompile)
+                            const warningsArray = outputContent.content.warnings || []
                             return Array.isArray(warningsArray) && warningsArray.length > 0
                           })() && (
                             <div className="space-y-2 mt-4">
                               {(() => {
-                                const warnings = outputContent.content.warnings || outputContent.content.result?.warnings || []
+                                // ✅ Warnings are always in content.warnings
+                                const warnings = outputContent.content.warnings || []
                                 const warningsArray = Array.isArray(warnings) ? warnings : []
                                 
                                 return (
@@ -1622,11 +1601,13 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                                       <span style={{ color: '#FFD700' }}>⚠️</span> Warnings ({warningsArray.length}):
                                     </div>
                                     {warningsArray.map((warning: any, index: number) => {
-                                const hasLineInfo = warning.line !== undefined && warning.line !== null
-                                const lineNumber = warning.line || warning.sourceLocation?.start?.line || 0
-                                const columnNumber = warning.column || warning.sourceLocation?.start?.column || 0
+                                // ✅ Use line/column directly - they're now accurate!
+                                // Backend extracts them correctly from formattedMessage
+                                const lineNumber = warning.line ?? null
+                                const columnNumber = warning.column ?? null
+                                const hasLineInfo = lineNumber !== null && lineNumber !== undefined && lineNumber > 0
                                 const warningCode = warning.code || warning.errorCode
-                                const fileName = warning.file || warning.sourceLocation?.file || warning.sourceLocation?.fileName
+                                const fileName = warning.file || warning.sourceLocation?.file || 'src/Challenge.sol'
                                 
                                 return (
                                   <div 
