@@ -17,19 +17,41 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {
-        // For frontend demo purposes, accept any credentials
-        // In a real app, this would validate against a database
         if (!credentials?.email || !credentials?.password) {
           return null
         }
 
-        // Mock user for demo purposes
-        return {
-          id: 'demo-user-id',
-          email: credentials.email,
-          name: 'Demo User',
-          role: 'STUDENT',
-          isPremium: false,
+        try {
+          // Authenticate with backend first
+          const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+          const res = await fetch(`${backendUrl}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: credentials.email,
+              password: credentials.password
+            })
+          })
+          const data = await res.json()
+          
+          if (data?.success) {
+            // Return user with backend tokens stored in user object
+            return {
+              id: data.user?.id || 'unknown',
+              email: data.user?.email || credentials.email,
+              name: data.user?.name || 'User',
+              role: data.user?.role || 'STUDENT',
+              isPremium: !!data.user?.isPremium,
+              backendAccessToken: data.accessToken,
+              backendRefreshToken: data.refreshToken,
+            }
+          } else {
+            // Authentication failed
+            return null
+          }
+        } catch (error) {
+          // Network error or other exception
+          return null
         }
       }
     })
@@ -42,7 +64,18 @@ export const authOptions: NextAuthOptions = {
       // Allow all sign-ins for demo purposes
       return true
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger, session }) {
+      // Handle credentials sign-in - backend tokens are already in user object from authorize
+      if (account?.provider === 'credentials' && user && (user as any).backendAccessToken) {
+        token.backendAccessToken = (user as any).backendAccessToken
+        token.backendRefreshToken = (user as any).backendRefreshToken
+        token.id = (user as any).id || token.sub
+        token.role = (user as any).role || 'STUDENT'
+        token.isPremium = !!(user as any).isPremium
+        token.user = user
+        token.backendAuthStatus = 'ok'
+      }
+
       // On first sign-in with Google, exchange id_token with backend for app tokens
       if (account?.provider === 'google' && (account as any).id_token) {
         try {

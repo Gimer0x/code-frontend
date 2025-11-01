@@ -1917,34 +1917,6 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                              </div>
                            )}
 
-                           {/* Test Summary */}
-                           {outputContent.content.summary && (
-                             <div className="bg-blue-50 dark:bg-blue-900 p-3 rounded-lg">
-                               <div className="text-sm text-blue-800 dark:text-blue-200 font-medium mb-1">
-                                 Test Summary
-                               </div>
-                               <div className="text-xs text-blue-700 dark:text-blue-300">
-                                 {outputContent.content.summary.total > 0 && (
-                                   <>
-                                     <span className="font-medium">Total:</span> {outputContent.content.summary.total}
-                                   </>
-                                 )}
-                                 {outputContent.content.summary.total > 0 && outputContent.content.summary.passed > 0 && ' | '}
-                                 {outputContent.content.summary.passed > 0 && (
-                                   <>
-                                     <span className="font-medium text-green-700 dark:text-green-300">Passed:</span> {outputContent.content.summary.passed}
-                                   </>
-                                 )}
-                                 {outputContent.content.summary.total > 0 && outputContent.content.summary.failed > 0 && ' | '}
-                                 {outputContent.content.summary.failed > 0 && (
-                                   <>
-                                     <span className="font-medium text-red-700 dark:text-red-300">Failed:</span> {outputContent.content.summary.failed}
-                                   </>
-                                 )}
-                               </div>
-                             </div>
-                           )}
-
                            {/* Individual Test Results */}
                            {outputContent.content.tests && Array.isArray(outputContent.content.tests) && outputContent.content.tests.length > 0 && (
                              <div className="space-y-2">
