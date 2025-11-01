@@ -1663,6 +1663,7 @@ export default function EditCourse() {
                                             onTestResult={setTestExecutionResult}
                                             className="flex-shrink-0"
                                             courseId={course?.id || ''}
+                                            lessonId={selectedLesson?.lessonId} // Pass lessonId so backend uses solution code from database
                                           />
                                         </div>
                                         <CodeEditor

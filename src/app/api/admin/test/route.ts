@@ -10,7 +10,8 @@ const adminTestSchema = z.object({
   testCode: z.string(),
   contractName: z.string().optional(),
   testName: z.string().optional(),
-  courseId: z.string().optional()
+  courseId: z.string().optional(),
+  lessonId: z.string().optional() // If provided, backend will fetch solution code from database
 })
 
 /**
@@ -125,8 +126,26 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
     const cleanTestCode = parsed.testCode.trim().replace(/[\u200B-\u200D\uFEFF]/g, '')
 
     // Call backend test endpoint with admin token
-    // Backend expects: courseId, code, and testCode (not solutionCode)
+    // Backend expects: courseId, testCode, and either lessonId OR code (or both)
+    // If lessonId is provided, backend will prioritize solution code from database
+    // If solution code not found in DB, backend will fallback to code from request
+    // If lessonId is not provided, backend will use code from request body
     const courseId = parsed.courseId || 'default-course'
+    
+    // Build request body
+    const requestBody: any = {
+      courseId,
+      testCode: cleanTestCode,
+      code: cleanSolutionCode, // Always include as fallback
+      contractName,
+      testName,
+      options: {}
+    }
+    
+    // Include lessonId if provided - backend will prioritize solution code from database
+    if (parsed.lessonId) {
+      requestBody.lessonId = parsed.lessonId
+    }
     
     const backendResponse = await fetch(`${BACKEND_URL}/api/test`, {
       method: 'POST',
@@ -134,14 +153,7 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${adminToken}`
       },
-      body: JSON.stringify({
-        courseId,
-        code: cleanSolutionCode, // Backend expects 'code' not 'solutionCode'
-        testCode: cleanTestCode,
-        contractName,
-        testName,
-        options: {}
-      })
+      body: JSON.stringify(requestBody)
     })
 
     const backendResult = await backendResponse.json()

@@ -60,6 +60,7 @@ interface AdminTestButtonProps {
   onTestResult: (result: BackendTestResult | null) => void
   className?: string
   courseId?: string
+  lessonId?: string // Optional: if provided, backend will fetch solution code from database
 }
 
 export default function AdminTestButton({
@@ -67,7 +68,8 @@ export default function AdminTestButton({
   testCode,
   onTestResult,
   className,
-  courseId = 'default-course'
+  courseId = 'default-course',
+  lessonId
 }: AdminTestButtonProps) {
   const [isTesting, setIsTesting] = useState(false)
 
@@ -109,7 +111,8 @@ export default function AdminTestButton({
           solutionCode: solutionCode.trim(),
           testCode: testCode.trim(),
           contractName,
-          courseId
+          courseId,
+          lessonId // Pass lessonId if provided - backend will use solution code from database
         }),
         credentials: 'include' // Include cookies for NextAuth session
       })
