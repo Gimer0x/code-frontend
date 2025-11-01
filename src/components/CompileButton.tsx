@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { getTokens } from '@/lib/apiClient'
 
 interface CompilationError {
   severity: 'error' | 'warning' | 'info'
@@ -246,18 +247,29 @@ export default function CompileButton({
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
       
-      // Use frontend admin compile route which handles authentication via session
+      // Get auth token from localStorage (set by authService)
+      const { accessToken } = getTokens()
+      
+      // Use frontend admin compile route which handles authentication via session or Authorization header
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      }
+      
+      // Include Authorization header if token is available
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`
+      }
+      
       const response = await fetch('/api/admin/compile', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
           code: code.trim(),
           contractName,
           courseId: courseId || 'default-course'
         }),
-        signal: controller.signal
+        signal: controller.signal,
+        credentials: 'include' // Include cookies for NextAuth session
       })
       
       clearTimeout(timeoutId)
@@ -281,10 +293,13 @@ export default function CompileButton({
         errors = backendResult.errors || []
       } else {
         // Admin compile route format - parse output to extract structured errors/warnings
-        const output = apiResult.output || ''
+        // Ensure output is a string before splitting
+        const output = typeof apiResult.output === 'string' 
+          ? apiResult.output 
+          : (apiResult.output?.toString?.() || JSON.stringify(apiResult.output) || '')
         const errorStrings = apiResult.errors || []
         const warningStrings = apiResult.warnings || []
-        const lines = output.split('\n')
+        const lines = output ? output.split('\n') : []
         
         // Parse forge output to extract structured errors and warnings
         const seenErrors = new Set<string>()
@@ -454,7 +469,13 @@ export default function CompileButton({
         // Pattern 3: Parse string warnings array from admin compile route
         if (Array.isArray(warningStrings)) {
           for (const warningStr of warningStrings) {
-            const trimmed = warningStr.trim()
+            // Ensure warningStr is a string before calling trim
+            const warningStrValue = typeof warningStr === 'string' 
+              ? warningStr 
+              : (typeof warningStr === 'object' && warningStr !== null
+                  ? (warningStr.message || warningStr.formattedMessage || JSON.stringify(warningStr))
+                  : String(warningStr || ''))
+            const trimmed = warningStrValue.trim()
             if (!trimmed) continue
             
             // Try to extract structured info with error code
@@ -539,7 +560,13 @@ export default function CompileButton({
         // Pattern 4: Parse string errors array (fallback)
         if (errors.length === 0 && Array.isArray(errorStrings)) {
           for (const errorStr of errorStrings) {
-            const trimmed = errorStr.trim()
+            // Ensure errorStr is a string before calling trim
+            const errorStrValue = typeof errorStr === 'string' 
+              ? errorStr 
+              : (typeof errorStr === 'object' && errorStr !== null
+                  ? (errorStr.message || errorStr.formattedMessage || JSON.stringify(errorStr))
+                  : String(errorStr || ''))
+            const trimmed = errorStrValue.trim()
             if (!trimmed || trimmed.toLowerCase().includes('compiler run failed')) continue
             
             // Try to extract structured info with error code
