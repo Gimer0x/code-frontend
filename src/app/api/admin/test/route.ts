@@ -145,6 +145,15 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
     })
 
     const backendResult = await backendResponse.json()
+    
+    // Log backend response for debugging
+    console.log('=== BACKEND TEST RESPONSE ===')
+    console.log('Status:', backendResponse.status)
+    console.log('Response:', JSON.stringify(backendResult, null, 2))
+    console.log('Response keys:', Object.keys(backendResult))
+    console.log('Result object:', backendResult.result)
+    console.log('Tests array:', backendResult.tests || backendResult.result?.tests || backendResult.testResults || backendResult.result?.testResults)
+    console.log('===========================')
 
     if (!backendResponse.ok) {
       // Backend returned an error
@@ -162,26 +171,86 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
 
     // Backend returned test results
     // Transform backend response to match frontend expected format
-    const result = backendResult.result || {}
-    const tests = result.tests || result.testResults || []
+    // Backend may return tests in various locations: result.tests, result.testResults, or directly in response
+    const result = backendResult.result || backendResult
+    let tests = result.tests || result.testResults || backendResult.tests || backendResult.testResults || []
+    
+    // If tests array is empty, try to parse from output (raw Foundry output might need parsing)
+    if (tests.length === 0 && (result.output || backendResult.output)) {
+      const output = result.output || backendResult.output
+      // Try to parse Foundry test output format
+      // Look for test results in output like [PASS] testName() or [FAIL] testName()
+      const passMatches = output.match(/\[PASS\]\s+(\w+)/g) || []
+      const failMatches = output.match(/\[FAIL\]\s+(\w+)/g) || []
+      
+      passMatches.forEach((match: string) => {
+        const testName = match.match(/\[PASS\]\s+(\w+)/)?.[1] || 'Unknown'
+        tests.push({
+          name: testName,
+          status: 'pass',
+          message: 'Test passed'
+        })
+      })
+      
+      failMatches.forEach((match: string) => {
+        const testName = match.match(/\[FAIL\]\s+(\w+)/)?.[1] || 'Unknown'
+        tests.push({
+          name: testName,
+          status: 'fail',
+          message: 'Test failed'
+        })
+      })
+    }
+    
+    // Calculate summary from tests if not provided
+    const passedCount = result.summary?.passed ?? 
+                       tests.filter((t: any) => t.status === 'pass' || t.status === 'passed' || t.status === 'Success').length
+    const failedCount = result.summary?.failed ?? 
+                        tests.filter((t: any) => t.status === 'fail' || t.status === 'failed' || t.status === 'Failure').length
+    const testCount = result.summary?.total ?? 
+                      (backendResult.testCount ?? 
+                       ((passedCount + failedCount) || tests.length))
+    
+    // Log parsed results for debugging
+    console.log('=== PARSED TEST RESULTS ===')
+    console.log('Tests found:', tests.length)
+    console.log('Tests array:', JSON.stringify(tests, null, 2))
+    console.log('Test count:', testCount)
+    console.log('Passed count:', passedCount)
+    console.log('Failed count:', failedCount)
+    console.log('==========================')
     
     return NextResponse.json({
-      success: backendResult.success ?? true,
+      success: backendResult.success ?? (failedCount === 0 && testCount > 0),
       output: result.output || backendResult.output || '',
+      // Include debug info in development
+      _debug: process.env.NODE_ENV === 'development' ? {
+        backendResponse: backendResult,
+        parsedTests: tests,
+        testCount,
+        passedCount,
+        failedCount
+      } : undefined,
       results: tests.map((test: any) => ({
-        name: test.name || 'Unknown',
-        status: test.status === 'pass' || test.status === 'passed' ? 'pass' : 'fail',
-        message: test.message || (test.status === 'pass' || test.status === 'passed' ? 'Test passed' : 'Test failed'),
-        gasUsed: test.gasUsed || test.gas || 0,
-        error: test.error || (test.status === 'fail' || test.status === 'failed' ? test.message : undefined)
+        name: test.name || test.testName || 'Unknown',
+        status: (test.status === 'pass' || test.status === 'passed' || test.status === 'Success') ? 'pass' : 'fail',
+        message: test.message || 
+                 (test.reason && `Test failed: ${test.reason}`) ||
+                 ((test.status === 'pass' || test.status === 'passed' || test.status === 'Success') ? 'Test passed' : 'Test failed'),
+        gasUsed: test.gasUsed || test.gas || test.kind?.Unit?.gas || 0,
+        error: test.error || 
+               (test.reason || (test.status === 'fail' || test.status === 'failed' || test.status === 'Failure' ? test.message : undefined))
       })),
-      testCount: result.summary?.total || tests.length,
-      passedCount: result.summary?.passed || tests.filter((t: any) => (t.status === 'pass' || t.status === 'passed')).length,
-      failedCount: result.summary?.failed || tests.filter((t: any) => (t.status === 'fail' || t.status === 'failed')).length,
-      testTime: result.testTime || null,
-      message: backendResult.success 
-        ? 'Tests completed'
-        : 'Test execution failed',
+      testCount,
+      passedCount,
+      failedCount,
+      testTime: result.testTime || backendResult.testTime || null,
+      message: backendResult.message || 
+               (failedCount === 0 && testCount > 0 
+                 ? `All ${testCount} test(s) passed! 🎉`
+                 : testCount > 0 
+                   ? `${passedCount} of ${testCount} test(s) passed`
+                   : 'No tests were executed'),
       timestamp: backendResult.timestamp || new Date().toISOString()
     })
     
