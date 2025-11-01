@@ -153,6 +153,8 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
     console.log('Response keys:', Object.keys(backendResult))
     console.log('Error code:', backendResult.code)
     console.log('Result object:', backendResult.result)
+    console.log('Errors:', backendResult.errors || backendResult.result?.errors || [])
+    console.log('Warnings:', backendResult.warnings || backendResult.result?.warnings || backendResult.result?.compilation?.warnings || [])
     console.log('Tests array:', backendResult.tests || backendResult.result?.tests || backendResult.testResults || backendResult.result?.testResults)
     console.log('===========================')
 
@@ -160,9 +162,24 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
     const compilationErrorCodes = ['TEST_COMPILATION_FAILED', 'COMPILATION_FAILED', 'SOLUTION_COMPILATION_FAILED']
     if (backendResult.code && compilationErrorCodes.includes(backendResult.code)) {
       // Handle compilation failure - return compilation errors in a format similar to compilation results
-      const compilationErrors = backendResult.errors || []
-      const compilationWarnings = backendResult.warnings || []
+      // Check multiple possible locations for errors and warnings in the backend response
+      const compilationErrors = backendResult.errors || 
+                               backendResult.result?.errors || 
+                               backendResult.result?.compilation?.errors || 
+                               []
+      const compilationWarnings = backendResult.warnings || 
+                                  backendResult.result?.warnings || 
+                                  backendResult.result?.compilation?.warnings || 
+                                  []
       const compilationResult = backendResult.result?.compilation || backendResult.result || {}
+      
+      // Log warnings for debugging
+      console.log('=== COMPILATION WARNINGS ===')
+      console.log('Warnings from backendResult.warnings:', backendResult.warnings)
+      console.log('Warnings from backendResult.result?.warnings:', backendResult.result?.warnings)
+      console.log('Warnings from backendResult.result?.compilation?.warnings:', backendResult.result?.compilation?.warnings)
+      console.log('Final compilationWarnings:', compilationWarnings)
+      console.log('==========================')
       
       return NextResponse.json({
         success: false,
