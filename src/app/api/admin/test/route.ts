@@ -151,12 +151,63 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
     console.log('Status:', backendResponse.status)
     console.log('Response:', JSON.stringify(backendResult, null, 2))
     console.log('Response keys:', Object.keys(backendResult))
+    console.log('Error code:', backendResult.code)
     console.log('Result object:', backendResult.result)
     console.log('Tests array:', backendResult.tests || backendResult.result?.tests || backendResult.testResults || backendResult.result?.testResults)
     console.log('===========================')
 
+    // Check for compilation failures (backend returns 200 OK but with error code)
+    const compilationErrorCodes = ['TEST_COMPILATION_FAILED', 'COMPILATION_FAILED', 'SOLUTION_COMPILATION_FAILED']
+    if (backendResult.code && compilationErrorCodes.includes(backendResult.code)) {
+      // Handle compilation failure - return compilation errors in a format similar to compilation results
+      const compilationErrors = backendResult.errors || []
+      const compilationWarnings = backendResult.warnings || []
+      const compilationResult = backendResult.result?.compilation || backendResult.result || {}
+      
+      return NextResponse.json({
+        success: false,
+        error: backendResult.error || 'Compilation failed',
+        message: backendResult.message || 'Compilation failed - tests were not run',
+        // Return in compilation format so frontend can display compilation errors
+        compilation: {
+          success: false,
+          errors: compilationErrors.map((err: any) => ({
+            type: err.type || 'compilation_error',
+            severity: err.severity || 'error',
+            message: err.message || 'Unknown compilation error',
+            code: err.code || undefined,
+            file: err.file || backendResult.testFileName || 'Unknown',
+            line: err.line || undefined,
+            column: err.column || undefined,
+            source: err.source || 'test_compilation'
+          })),
+          warnings: compilationWarnings.map((warn: any) => ({
+            type: warn.type || 'compilation_warning',
+            severity: warn.severity || 'warning',
+            message: warn.message || 'Unknown warning',
+            code: warn.code || undefined,
+            file: warn.file || backendResult.testFileName || 'Unknown',
+            line: warn.line || undefined,
+            column: warn.column || undefined,
+            source: warn.source || 'test_compilation'
+          })),
+          output: compilationResult.output || backendResult.output || '',
+          contractName: backendResult.contractName || 'Unknown',
+          testFileName: backendResult.testFileName || 'Unknown'
+        },
+        // Also include test-related fields for consistency
+        results: [],
+        testCount: 0,
+        passedCount: 0,
+        failedCount: 0,
+        contractName: backendResult.contractName,
+        testFileName: backendResult.testFileName,
+        courseId: backendResult.courseId
+      }, { status: backendResponse.ok ? 200 : backendResponse.status })
+    }
+
     if (!backendResponse.ok) {
-      // Backend returned an error
+      // Backend returned a non-compilation error
       return NextResponse.json({
         success: false,
         error: backendResult.error || 'Test execution failed',

@@ -17,18 +17,41 @@ interface TestSummary {
   failed: number
 }
 
+interface CompilationError {
+  type: string
+  severity: 'error' | 'warning'
+  message: string
+  code?: string
+  file?: string
+  line?: number
+  column?: number
+  source?: string
+}
+
+interface CompilationResult {
+  success: boolean
+  errors: CompilationError[]
+  warnings: CompilationError[]
+  output?: string
+  contractName?: string
+  testFileName?: string
+}
+
 interface BackendTestResult {
   success: boolean
-  result: {
+  result?: {
     success: boolean
     tests: TestResult[]
     summary: TestSummary
     timestamp: string
   }
+  compilation?: CompilationResult
   courseId: string
   contractName: string
   testFileName: string
   timestamp: string
+  message?: string
+  error?: string
 }
 
 interface AdminTestButtonProps {
@@ -95,7 +118,34 @@ export default function AdminTestButton({
         const errorData = await response.json()
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
+      
       const data = await response.json()
+      
+      // Check if this is a compilation failure
+      if (data.compilation) {
+        // Handle compilation failure - return compilation result
+        const mapped: BackendTestResult = {
+          success: false,
+          compilation: {
+            success: data.compilation.success ?? false,
+            errors: data.compilation.errors || [],
+            warnings: data.compilation.warnings || [],
+            output: data.compilation.output,
+            contractName: data.compilation.contractName || data.contractName || contractName,
+            testFileName: data.compilation.testFileName || data.testFileName || `${contractName}.t.sol`
+          },
+          courseId: data.courseId || courseId || 'default-course',
+          contractName: data.contractName || data.compilation.contractName || contractName,
+          testFileName: data.testFileName || data.compilation.testFileName || `${contractName}.t.sol`,
+          timestamp: data.timestamp || new Date().toISOString(),
+          message: data.message || 'Compilation failed - tests were not run',
+          error: data.error
+        }
+        onTestResult(mapped)
+        return
+      }
+      
+      // Handle test results (compilation succeeded)
       const testsArray = Array.isArray(data.results) ? data.results : []
       const mapped: BackendTestResult = {
         success: Boolean(data.success),
@@ -106,19 +156,20 @@ export default function AdminTestButton({
             status: r.status === 'pass' ? 'passed' : 'failed',
             gasUsed: r.gasUsed || 0,
             duration: '0ms',
-            error: r.status === 'fail' ? r.message : undefined
+            error: r.status === 'fail' ? r.message || r.error : undefined
           })),
           summary: {
             total: data.testCount ?? testsArray.length,
             passed: data.passedCount ?? testsArray.filter((r: any) => r.status === 'pass').length,
             failed: data.failedCount ?? testsArray.filter((r: any) => r.status !== 'pass').length,
           },
-          timestamp: new Date().toISOString()
+          timestamp: data.timestamp || new Date().toISOString()
         },
-        courseId: courseId || 'default-course',
-        contractName,
-        testFileName: `${contractName}.t.sol`,
-        timestamp: new Date().toISOString()
+        courseId: data.courseId || courseId || 'default-course',
+        contractName: data.contractName || contractName,
+        testFileName: data.testFileName || `${contractName}.t.sol`,
+        timestamp: data.timestamp || new Date().toISOString(),
+        message: data.message
       }
       onTestResult(mapped)
 
