@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { getTokens } from '@/lib/apiClient'
 
 interface TestResult {
   name: string
@@ -65,16 +66,29 @@ export default function AdminTestButton({
       const contractNameMatch = solutionCode.match(/contract\s+(\w+)/)
       const contractName = contractNameMatch ? contractNameMatch[1] : 'TestContract'
 
-      // Use frontend proxy which authenticates via the user's session
+      // Get auth token from localStorage (set by authService)
+      const { accessToken } = getTokens()
+      
+      // Use frontend proxy which authenticates via session or Authorization header
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      }
+      
+      // Include Authorization header if token is available
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`
+      }
+
       const response = await fetch('/api/admin/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           solutionCode: solutionCode.trim(),
           testCode: testCode.trim(),
           contractName,
           courseId
-        })
+        }),
+        credentials: 'include' // Include cookies for NextAuth session
       })
 
       if (!response.ok) {
