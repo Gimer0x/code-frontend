@@ -2,6 +2,8 @@
 
 import React from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
+import { getTokens } from '@/lib/apiClient'
 
 interface Lesson {
   id: string
@@ -18,6 +20,11 @@ interface Module {
   lessons: Lesson[]
 }
 
+interface Subscription {
+  subscriptionPlan: string
+  subscriptionStatus: string
+}
+
 export default function ModuleLessonsList({
   courseId,
   modules,
@@ -26,6 +33,55 @@ export default function ModuleLessonsList({
   modules: Module[]
 }) {
   const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set<string>(modules.length ? [modules[0].id] : []))
+  const [subscription, setSubscription] = React.useState<Subscription | null>(null)
+  const [loadingSubscription, setLoadingSubscription] = React.useState(true)
+  const { data: session } = useSession()
+
+  // Fetch subscription status from backend
+  React.useEffect(() => {
+    async function fetchSubscription() {
+      try {
+        // Get backend access token
+        const { accessToken } = getTokens()
+        
+        if (!accessToken && session?.backendAccessToken) {
+          // Try to use session token if available
+          const response = await fetch('/api/user-auth/subscription', {
+            headers: {
+              'Authorization': `Bearer ${session.backendAccessToken}`,
+            },
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            if (data.success && data.subscription) {
+              setSubscription({
+                subscriptionPlan: data.subscription.plan || 'FREE',
+                subscriptionStatus: data.subscription.status || 'INACTIVE',
+              })
+            }
+          }
+        } else if (accessToken) {
+          const response = await fetch('/api/user/subscription', {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+            },
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            setSubscription(data)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching subscription:', error)
+      } finally {
+        setLoadingSubscription(false)
+      }
+    }
+
+    fetchSubscription()
+  }, [session])
 
   const toggle = (id: string) => {
     setExpanded(prev => {
@@ -39,6 +95,18 @@ export default function ModuleLessonsList({
   // Placeholder for completion gating if needed later
   const completedLessons = new Set<string>()
 
+  // Check if user has paid subscription with active status
+  const hasPaidAccess = subscription && 
+    ['MONTHLY', 'YEARLY'].includes(subscription.subscriptionPlan) &&
+    subscription.subscriptionStatus === 'ACTIVE'
+
+  // Free users can only access first module
+  const canAccessModule = (moduleIndex: number) => {
+    if (loadingSubscription) return false // Don't show access until we know subscription status
+    if (hasPaidAccess) return true // Paid users can access all modules
+    return moduleIndex === 0 // Free users can only access first module
+  }
+
   return (
     <div className="space-y-4">
       {modules.map((module, index) => {
@@ -46,6 +114,8 @@ export default function ModuleLessonsList({
         const totalLessons = module.lessons.length
         const isExpanded = expanded.has(module.id)
         const isFirstModule = index === 0
+        const canAccess = canAccessModule(index)
+        const needsUpgrade = !canAccess && !loadingSubscription
 
         return (
           <div key={module.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -60,11 +130,12 @@ export default function ModuleLessonsList({
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   {completedInModule} of {totalLessons} completed
                 </span>
-                {!isFirstModule && (
+                {needsUpgrade && (
                   <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 px-2 py-1 rounded-full">
                     Upgrade Required
                   </span>
                 )}
+                
               </div>
             </div>
 
@@ -73,7 +144,7 @@ export default function ModuleLessonsList({
                 <div className="space-y-2">
                   {module.lessons.map((lesson, lessonIndex) => {
                     const isCompleted = completedLessons.has(lesson.id)
-                    const isLessonBlocked = !isFirstModule
+                    const isLessonBlocked = !canAccess
 
                     const lessonContent = (
                       <div className={`flex items-center gap-3 p-2 bg-white dark:bg-gray-700 rounded ${isLessonBlocked ? 'opacity-60' : ''}`}>
