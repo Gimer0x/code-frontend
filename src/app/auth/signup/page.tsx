@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 export default function SignUpPage() {
@@ -13,6 +13,8 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnUrl = searchParams?.get('returnUrl') || '/'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,7 +57,8 @@ export default function SignUpPage() {
         })
 
         if (result?.ok) {
-          router.push('/')
+          // Redirect to returnUrl if provided, otherwise go to home
+          router.push(returnUrl)
           router.refresh()
         } else {
           setError('Registration successful. Please sign in.')
@@ -73,7 +76,7 @@ export default function SignUpPage() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
     try {
-      await signIn('google', { callbackUrl: '/' })
+      await signIn('google', { callbackUrl: returnUrl })
     } catch (error) {
       setError('An error occurred with Google sign-in')
       setIsLoading(false)

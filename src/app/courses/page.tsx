@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -94,18 +95,23 @@ const mockCourses = [
 ]
 
 export default function CoursesPage() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [userSubscription, setUserSubscription] = useState<any>(null)
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (authLoading || status === 'loading') {
+      return
+    }
+
+    if (status === 'unauthenticated' && !user) {
       router.push('/auth/signin?callbackUrl=/courses')
       return
     }
 
-    if (session?.user?.email) {
+    if (session?.user?.email || user) {
       // Fetch user subscription status
       fetchUserSubscription()
       
@@ -115,7 +121,7 @@ export default function CoursesPage() {
         handlePaymentSuccess(sessionId)
       }
     }
-  }, [session, status, router, searchParams])
+  }, [session, status, router, searchParams, user, authLoading])
 
   const handlePaymentSuccess = async (sessionId: string) => {
     try {
@@ -190,7 +196,7 @@ export default function CoursesPage() {
     return 'Upgrade to access this module'
   }
 
-  if (status === 'loading') {
+  if (authLoading || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -198,7 +204,7 @@ export default function CoursesPage() {
     )
   }
 
-  if (!session) {
+  if (!session && !user) {
     return null
   }
 

@@ -27,12 +27,12 @@ export async function GET(request: NextRequest) {
 
     if (!backendToken) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' },
         { status: 401 }
       )
     }
 
-    // Proxy to backend subscription endpoint
+    // Proxy to backend
     const backendResponse = await fetch(`${BACKEND_URL}/api/user-auth/subscription`, {
       method: 'GET',
       headers: {
@@ -43,33 +43,19 @@ export async function GET(request: NextRequest) {
 
     const backendResult = await backendResponse.json()
 
-    // Transform backend response to match expected format
-    if (backendResult.success && backendResult.subscription) {
-      const subscription = backendResult.subscription
-      return NextResponse.json({
-        subscriptionPlan: subscription.plan || 'FREE',
-        subscriptionStatus: subscription.status || 'INACTIVE',
-        trialEndsAt: subscription.trialEndsAt,
-        subscriptionEndsAt: subscription.endsAt,
-        stripeCustomerId: subscription.stripeSubscriptionId ? 'set' : null, // Don't expose full ID
-        stripeSubscriptionId: subscription.stripeSubscriptionId,
-      })
-    }
-
-    // If backend returns error, return a default response
-    return NextResponse.json({
-      subscriptionPlan: 'FREE',
-      subscriptionStatus: 'INACTIVE',
-      trialEndsAt: null,
-      subscriptionEndsAt: null,
-      stripeCustomerId: null,
-      stripeSubscriptionId: null,
+    // Log for debugging
+    console.log('[Subscription Status] Backend response:', {
+      status: backendResponse.status,
+      result: backendResult,
     })
+
+    return NextResponse.json(backendResult, { status: backendResponse.status })
   } catch (error) {
-    console.error('Error fetching subscription:', error)
+    console.error('Error fetching subscription status:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { success: false, error: 'Failed to fetch subscription status', code: 'SUBSCRIPTION_STATUS_FAILED' },
       { status: 500 }
     )
   }
 }
+

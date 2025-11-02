@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { getTokens } from '@/lib/apiClient'
 
 const pricingPlans = [
   {
@@ -60,13 +61,23 @@ const pricingPlans = [
 export default function PricingPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  // Check if user came back from canceled payment
+  const canceled = searchParams?.get('canceled') === 'true'
 
   const handlePlanSelect = async (plan: string) => {
     if (authLoading) return
 
+    setError(null)
+
+    // If user not authenticated, redirect to signup
     if (!user) {
-      router.push('/auth/signin?callbackUrl=/pricing')
+      // Store the selected plan in localStorage or URL param to continue after signup
+      const returnUrl = `/pricing?plan=${plan}`
+      router.push(`/auth/signup?returnUrl=${encodeURIComponent(returnUrl)}`)
       return
     }
 
@@ -79,37 +90,103 @@ export default function PricingPage() {
     setLoading(plan)
     
     try {
-      // Create Stripe checkout session
-      const response = await fetch('/api/stripe/create-checkout-session', {
+      // Get backend access token
+      const { accessToken } = getTokens()
+
+      if (!accessToken) {
+        setError('Authentication required. Please sign in again.')
+        setLoading(null)
+        router.push('/auth/signin?callbackUrl=/pricing')
+        return
+      }
+
+      // Start subscription checkout using new backend endpoint
+      const response = await fetch('/api/user-auth/subscribe/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          priceId: plan === 'MONTHLY' ? 'price_monthly' : 'price_yearly',
-          plan: plan,
+          plan: plan === 'MONTHLY' ? 'MONTHLY' : 'YEARLY',
+          successUrl: `${window.location.origin}/billing/success`,
+          cancelUrl: `${window.location.origin}/billing/cancel`,
         }),
       })
 
-      const { url } = await response.json()
-      
-      if (url) {
-        window.location.href = url
+      let data
+      try {
+        data = await response.json()
+      } catch (parseError) {
+        // If JSON parsing fails, get text response
+        const errorText = await response.text().catch(() => 'Unknown error')
+        setError(`Server error: ${errorText}`)
+        console.error('Failed to parse response:', errorText)
+        return
+      }
+
+      // Log for debugging
+      console.log('[Pricing] Subscription start response:', {
+        status: response.status,
+        data,
+      })
+
+      if (!data.success) {
+        // Handle different error codes
+        switch (data.code) {
+          case 'STRIPE_NOT_CONFIGURED':
+            setError('Payment system is not configured. Please contact support.')
+            console.error('Stripe not configured on backend. Check backend environment variables: STRIPE_SECRET_KEY, STRIPE_PRICE_MONTHLY, STRIPE_PRICE_YEARLY')
+            break
+          case 'USER_NOT_FOUND':
+            setError('User session expired. Please log in again.')
+            router.push('/auth/signin?callbackUrl=/pricing')
+            break
+          case 'AUTH_REQUIRED':
+            setError('Authentication required. Please sign in again.')
+            router.push('/auth/signin?callbackUrl=/pricing')
+            break
+          default:
+            setError(data.error || 'Failed to start checkout. Please try again.')
+            console.error('Unknown error code:', data.code, data)
+        }
+        return
+      }
+
+      // Redirect to Stripe Checkout
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
+      } else {
+        setError('No checkout URL received. Please try again.')
       }
     } catch (error) {
-      alert('Something went wrong. Please try again.')
+      console.error('Subscription error:', error)
+      setError('Network error. Please check your connection and try again.')
     } finally {
       setLoading(null)
     }
   }
 
-  if (status === 'loading') {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     )
   }
+
+  // Check if user returned from signup with a plan
+  const planFromUrl = searchParams?.get('plan')
+
+  // Auto-select plan after signup if user is now authenticated and plan is in URL
+  useEffect(() => {
+    if (!authLoading && user && planFromUrl && planFromUrl !== 'FREE') {
+      // Small delay to ensure page is fully rendered
+      setTimeout(() => {
+        handlePlanSelect(planFromUrl)
+      }, 500)
+    }
+  }, [user, authLoading, planFromUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -124,6 +201,34 @@ export default function PricingPage() {
             Get immediate access to all content with paid subscriptions.
           </p>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="max-w-6xl mx-auto mb-6">
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Canceled message */}
+        {canceled && (
+          <div className="max-w-6xl mx-auto mb-6">
+            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <span>Payment was canceled. You can try again anytime.</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Pricing Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
