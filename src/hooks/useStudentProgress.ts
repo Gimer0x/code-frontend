@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
+import { getTokens } from '@/lib/apiClient'
 
 // Global request deduplication cache to prevent multiple simultaneous requests
 export const progressRequestCache = new Map<string, Promise<any>>()
@@ -90,8 +91,54 @@ export function useStudentProgress({
       try {
         const data = await progressRequestCache.get(cacheKey)
         if (data?.success) {
-          setProgress(data.data.progress[0] || null)
-          setStatistics(data.data.statistics)
+          // Backend returns data in flat structure: { success: true, codeContent: "...", files: [...] }
+          let codeContent = data.codeContent || null
+          
+          // If codeContent is not available, try to get from files array
+          if (!codeContent && data.files && Array.isArray(data.files) && data.files.length > 0) {
+            const solFile = data.files.find((f: any) => 
+              f.path?.endsWith('.sol') || 
+              f.filePath?.endsWith('.sol') || 
+              f.fileName?.endsWith('.sol')
+            ) || data.files[0]
+            
+            codeContent = solFile?.content || solFile?.code || null
+          }
+          
+          // Backward compatibility: check nested structure
+          if (!codeContent && data.data?.progress?.[0]?.codeContent) {
+            codeContent = data.data.progress[0].codeContent
+          }
+          
+          if (!codeContent && data.data?.files && Array.isArray(data.data.files) && data.data.files.length > 0) {
+            const solFile = data.data.files.find((f: any) => 
+              f.path?.endsWith('.sol') || 
+              f.filePath?.endsWith('.sol') || 
+              f.fileName?.endsWith('.sol')
+            ) || data.data.files[0]
+            
+            codeContent = solFile?.content || solFile?.code || null
+          }
+          
+          // Create progress object from flat response structure
+          const progressEntry: ProgressData = {
+            id: 'temp',
+            isCompleted: data.isCompleted || false,
+            lastSavedAt: data.lastSavedAt || null,
+            completedAt: data.completedAt || null,
+            codeContent,
+            lesson: {
+              id: lessonId || '',
+              title: '',
+              type: '',
+              order: 0
+            },
+            compilationResults: data.lastCompilation ? [data.lastCompilation] : [],
+            testResults: data.lastTest ? [data.lastTest] : []
+          }
+          
+          setProgress(codeContent ? progressEntry : null)
+          setStatistics(data.statistics || data.data?.statistics || null)
         }
         setIsLoading(false)
         return
@@ -124,9 +171,87 @@ export function useStudentProgress({
 
       const data = await requestPromise
 
+      // Debug: Log the response structure to see what the backend returns
+      // Also log the raw response to see what we're actually getting
+      console.log('[useStudentProgress] Raw response data:', data)
+      console.log('[useStudentProgress] Backend progress response:', {
+        success: data?.success,
+        hasProgress: !!data?.data?.progress,
+        progressLength: data?.data?.progress?.length,
+        progressEntry: data?.data?.progress?.[0],
+        hasFiles: !!data?.data?.files,
+        filesLength: data?.data?.files?.length,
+        dataKeys: data?.data ? Object.keys(data.data) : [],
+        topLevelKeys: Object.keys(data || {}),
+        fullData: data
+      })
+      
+      // Also log the full response as JSON for easier inspection
+      console.log('[useStudentProgress] Full response JSON:', JSON.stringify(data, null, 2))
+
       if (data?.success) {
-        setProgress(data.data.progress[0] || null)
-        setStatistics(data.data.statistics)
+        // Backend returns data in flat structure, not nested in data.data.progress
+        // Response structure: { success: true, codeContent: "...", files: [...], isCompleted: false, ... }
+        
+        // Extract codeContent directly from response (backend returns it at top level)
+        let codeContent = data.codeContent || null
+        
+        // If codeContent is not available, try to get from files array
+        if (!codeContent && data.files && Array.isArray(data.files) && data.files.length > 0) {
+          // Find the first .sol file
+          const solFile = data.files.find((f: any) => 
+            f.path?.endsWith('.sol') || 
+            f.filePath?.endsWith('.sol') || 
+            f.fileName?.endsWith('.sol')
+          ) || data.files[0]
+          
+          codeContent = solFile?.content || solFile?.code || null
+          console.log('[useStudentProgress] Extracted code from files array:', { codeContent: codeContent?.substring(0, 100) })
+        }
+        
+        // Also check nested structure (backward compatibility)
+        if (!codeContent && data.data?.progress?.[0]?.codeContent) {
+          codeContent = data.data.progress[0].codeContent
+          console.log('[useStudentProgress] Extracted code from nested data.data.progress[0]:', { codeContent: codeContent?.substring(0, 100) })
+        }
+        
+        // Also check data.data.files (backward compatibility)
+        if (!codeContent && data.data?.files && Array.isArray(data.data.files) && data.data.files.length > 0) {
+          const solFile = data.data.files.find((f: any) => 
+            f.path?.endsWith('.sol') || 
+            f.filePath?.endsWith('.sol') || 
+            f.fileName?.endsWith('.sol')
+          ) || data.data.files[0]
+          
+          codeContent = solFile?.content || solFile?.code || null
+          console.log('[useStudentProgress] Extracted code from data.data.files:', { codeContent: codeContent?.substring(0, 100) })
+        }
+        
+        console.log('[useStudentProgress] Final codeContent:', { 
+          hasCode: !!codeContent, 
+          codeLength: codeContent?.length,
+          codePreview: codeContent?.substring(0, 100)
+        })
+        
+        // Create progress object from flat response structure
+        const progressEntry: ProgressData = {
+          id: 'temp', // Backend doesn't return progress ID in this format
+          isCompleted: data.isCompleted || false,
+          lastSavedAt: data.lastSavedAt || null,
+          completedAt: data.completedAt || null,
+          codeContent,
+          lesson: {
+            id: lessonId || '',
+            title: '',
+            type: '',
+            order: 0
+          },
+          compilationResults: data.lastCompilation ? [data.lastCompilation] : [],
+          testResults: data.lastTest ? [data.lastTest] : []
+        }
+        
+        setProgress(codeContent ? progressEntry : null)
+        setStatistics(data.statistics || null)
       } else {
         setError(data.error || 'Failed to fetch progress')
       }
@@ -147,30 +272,43 @@ export function useStudentProgress({
       setIsSaving(true)
       setError(null)
 
-      const response = await fetch('/api/challenge/save', {
-        method: 'POST',
+      // Get auth token from localStorage or session
+      const { accessToken } = getTokens()
+      
+      // Extract contract name from code to determine file path
+      const contractMatch = code.match(/contract\s+(\w+)/)
+      const contractName = contractMatch ? contractMatch[1] : 'Contract'
+      const filePath = `src/${contractName}.sol`
+
+      // Use the backend API endpoint that proxies to the backend
+      const response = await fetch('/api/student/code', {
+        method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` })
         },
         body: JSON.stringify({
           courseId,
           lessonId,
-          code
+          files: [
+            { path: filePath, content: code }
+          ]
         })
       })
 
       const data = await response.json()
 
-      if (data.success) {
+      if (response.ok && data.success !== false) {
         // Update local state
+        const savedAt = data.savedAt ? new Date(data.savedAt) : new Date()
         setProgress(prev => prev ? {
           ...prev,
           codeContent: code,
-          lastSavedAt: new Date(data.savedAt)
+          lastSavedAt: savedAt.toISOString()
         } : {
           id: 'temp',
           isCompleted: false,
-          lastSavedAt: new Date(data.savedAt).toISOString(),
+          lastSavedAt: savedAt.toISOString(),
           completedAt: null,
           codeContent: code,
           lesson: {
@@ -183,15 +321,13 @@ export function useStudentProgress({
           testResults: []
         })
         
-        // Removed fetchProgress() call to prevent infinite loops
-        
         return true
       } else {
-        setError(data.error || 'Failed to save code')
+        setError(data.error || data.message || 'Failed to save code')
         return false
       }
     } catch (err) {
-      setError('Failed to save code')
+      setError(err instanceof Error ? err.message : 'Failed to save code')
       return false
     } finally {
       setIsSaving(false)

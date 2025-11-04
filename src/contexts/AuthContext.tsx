@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { getSession, signOut, useSession } from 'next-auth/react'
+import { signOut, useSession } from 'next-auth/react'
 import { authService } from '@/lib/auth-service'
 
 interface User {
@@ -54,8 +54,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Case 2: user logged in via NextAuth (Google or credentials), adopt backend tokens from session
+    // Only use session if it's loaded - don't call getSession() to avoid extra request
+    if (status === 'loading') {
+      return // Wait for session to load
+    }
+    
     try {
-      const currentSession: any = session || await getSession()
+      const currentSession: any = session
       if (currentSession?.backendAccessToken && currentSession?.backendRefreshToken) {
         authService.setTokens(currentSession.backendAccessToken, currentSession.backendRefreshToken)
         const data = await authService.getProfile()
@@ -70,7 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch {}
     setLoading(false)
-  }, [session])
+  }, [session, status]) // Include status to wait for session to load
 
   useEffect(() => {
     bootstrap()
