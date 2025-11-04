@@ -1,5 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
+
+// Global request deduplication cache to prevent multiple simultaneous requests
+export const progressRequestCache = new Map<string, Promise<any>>()
 
 interface ProgressData {
   id: string
@@ -70,28 +73,56 @@ export function useStudentProgress({
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null)
+  const isFetchingRef = useRef(false)
+  const hasFetchedRef = useRef(false)
 
   const fetchProgress = useCallback(async () => {
     if (!session?.user?.id) {
       return
     }
 
+    const params = new URLSearchParams({ courseId })
+    if (lessonId) params.append('lessonId', lessonId)
+    const cacheKey = `/api/student/progress?${params}`
+
+    // Check if there's already a request in progress for this key (atomic check)
+    if (progressRequestCache.has(cacheKey)) {
+      try {
+        const data = await progressRequestCache.get(cacheKey)
+        if (data?.success) {
+          setProgress(data.data.progress[0] || null)
+          setStatistics(data.data.statistics)
+        }
+        setIsLoading(false)
+        return
+      } catch (err) {
+        // If cached request fails, remove it and continue with new request
+        progressRequestCache.delete(cacheKey)
+      }
+    }
+
+    // Set cache immediately BEFORE starting request to prevent race conditions
+    const requestPromise = fetch(cacheKey)
+      .then(async (response) => {
+        if (response.status === 404) {
+          return { success: true, data: { progress: [], statistics: null } }
+        }
+        return response.json()
+      })
+      .finally(() => {
+        // Remove from cache after 1 second to allow fresh requests
+        setTimeout(() => progressRequestCache.delete(cacheKey), 1000)
+      })
+
+    // Set cache IMMEDIATELY to prevent other components from making duplicate requests
+    progressRequestCache.set(cacheKey, requestPromise)
+
     try {
+      isFetchingRef.current = true
       setIsLoading(true)
       setError(null)
 
-      const params = new URLSearchParams({ courseId })
-      if (lessonId) params.append('lessonId', lessonId)
-
-      const response = await fetch(`/api/student/progress?${params}`)
-      if (response.status === 404) {
-        // Treat 404 as no progress yet; clear error and set empty state
-        setProgress(null)
-        setStatistics(null)
-        setError(null)
-        return
-      }
-      const data = await response.json()
+      const data = await requestPromise
 
       if (data?.success) {
         setProgress(data.data.progress[0] || null)
@@ -103,8 +134,9 @@ export function useStudentProgress({
       setError('Failed to fetch progress')
     } finally {
       setIsLoading(false)
+      isFetchingRef.current = false
     }
-  }, [session, courseId, lessonId])
+  }, [session?.user?.id, courseId, lessonId]) // Only depend on user.id, not entire session object
 
   const saveCode = useCallback(async (code: string, fileName = 'main.sol'): Promise<boolean> => {
     if (!lessonId) {
@@ -237,10 +269,37 @@ export function useStudentProgress({
     }
   }, [autoSaveTimeout])
 
-  // Initial fetch
+  // Initial fetch - only run when user ID, courseId, or lessonId changes
   useEffect(() => {
+    if (!session?.user?.id) {
+      return
+    }
+
+    // Create a unique key for this fetch
+    const params = new URLSearchParams({ courseId })
+    if (lessonId) params.append('lessonId', lessonId)
+    const cacheKey = `/api/student/progress?${params}`
+
+    // If there's already a request in progress, don't fetch again
+    if (progressRequestCache.has(cacheKey)) {
+      return
+    }
+
+    // If we've already fetched for this combination, don't fetch again
+    // This prevents React Strict Mode from causing duplicate fetches
+    if (hasFetchedRef.current) {
+      return
+    }
+
+    hasFetchedRef.current = true
     fetchProgress()
-  }, [fetchProgress])
+
+    // Reset hasFetchedRef when dependencies change
+    return () => {
+      hasFetchedRef.current = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id, courseId, lessonId]) // Only depend on these values, not fetchProgress
 
   return {
     progress,

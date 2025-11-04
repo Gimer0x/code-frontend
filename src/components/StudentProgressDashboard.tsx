@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import { progressRequestCache } from '@/hooks/useStudentProgress'
 
 interface ProgressData {
   progress: Array<{
@@ -110,15 +111,41 @@ export default function StudentProgressDashboard({
         fetchAnalyticsData()
       }
     }
-  }, [session, courseId, lessonId, showAnalytics])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id, courseId, lessonId, showAnalytics]) // Only depend on user.id, not entire session object
 
   const fetchProgressData = async () => {
     try {
       const params = new URLSearchParams({ courseId })
       if (lessonId) params.append('lessonId', lessonId)
+      const cacheKey = `/api/student/progress?${params}`
 
-      const response = await fetch(`/api/student/progress?${params}`)
-      const data = await response.json()
+      // Check if there's already a request in progress (use global cache from useStudentProgress)
+      if (progressRequestCache.has(cacheKey)) {
+        try {
+          const data = await progressRequestCache.get(cacheKey)
+          if (data?.success) {
+            setProgressData(data.data)
+          }
+          setIsLoading(false)
+          return
+        } catch (err) {
+          // If cached request fails, continue with new request
+        }
+      }
+
+      // Create new request and cache it
+      const requestPromise = fetch(cacheKey)
+        .then(async (response) => {
+          return response.json()
+        })
+        .finally(() => {
+          // Remove from cache after 1 second to allow fresh requests
+          setTimeout(() => progressRequestCache.delete(cacheKey), 1000)
+        })
+
+      progressRequestCache.set(cacheKey, requestPromise)
+      const data = await requestPromise
 
       if (data.success) {
         setProgressData(data.data)

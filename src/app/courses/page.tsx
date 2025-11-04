@@ -3,7 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 
 // Mock courses data
@@ -111,17 +111,19 @@ export default function CoursesPage() {
       return
     }
 
-    if (session?.user?.email || user) {
-      // Fetch user subscription status
+    if (session?.user?.email || user?.email) {
+      // Fetch user subscription status (only once)
       fetchUserSubscription()
       
-      // Handle successful payment
+      // Handle successful payment (only check once)
       const sessionId = searchParams.get('session_id')
-      if (searchParams.get('success') === 'true' && sessionId) {
+      const success = searchParams.get('success')
+      if (success === 'true' && sessionId) {
         handlePaymentSuccess(sessionId)
       }
     }
-  }, [session, status, router, searchParams, user, authLoading])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.email, status, user?.email, authLoading]) // Only depend on primitives, not objects
 
   const handlePaymentSuccess = async (sessionId: string) => {
     try {
@@ -142,14 +144,45 @@ export default function CoursesPage() {
     }
   }
 
+  // Request deduplication for subscription fetch
+  const subscriptionFetchRef = useRef<Promise<any> | null>(null)
+  
   const fetchUserSubscription = async () => {
+    // If there's already a request in progress, wait for it
+    if (subscriptionFetchRef.current) {
+      try {
+        const data = await subscriptionFetchRef.current
+        setUserSubscription(data)
+      } catch (error) {
+        // If cached request fails, continue with new request
+        subscriptionFetchRef.current = null
+      }
+      return
+    }
+    
     try {
-      const response = await fetch('/api/user/subscription')
-      if (response.ok) {
-        const data = await response.json()
+      const requestPromise = fetch('/api/user/subscription')
+        .then(async (response) => {
+          if (response.ok) {
+            return response.json()
+          }
+          return null
+        })
+        .finally(() => {
+          // Clear the ref after 1 second to allow fresh requests
+          setTimeout(() => {
+            subscriptionFetchRef.current = null
+          }, 1000)
+        })
+      
+      subscriptionFetchRef.current = requestPromise
+      const data = await requestPromise
+      
+      if (data) {
         setUserSubscription(data)
       }
     } catch (error) {
+      subscriptionFetchRef.current = null
     }
   }
 

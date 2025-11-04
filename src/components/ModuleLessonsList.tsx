@@ -37,8 +37,10 @@ export default function ModuleLessonsList({
   const [loadingSubscription, setLoadingSubscription] = React.useState(true)
   const { data: session } = useSession()
 
-  // Fetch subscription status from backend
+  // Fetch subscription status from backend (only once)
   React.useEffect(() => {
+    let cancelled = false
+    
     async function fetchSubscription() {
       try {
         // Get backend access token
@@ -52,7 +54,7 @@ export default function ModuleLessonsList({
             },
           })
           
-          if (response.ok) {
+          if (response.ok && !cancelled) {
             const data = await response.json()
             if (data.success && data.subscription) {
               setSubscription({
@@ -68,20 +70,27 @@ export default function ModuleLessonsList({
             },
           })
           
-          if (response.ok) {
+          if (response.ok && !cancelled) {
             const data = await response.json()
             setSubscription(data)
           }
         }
       } catch (error) {
-        console.error('Error fetching subscription:', error)
+        if (!cancelled) {
+          console.error('Error fetching subscription:', error)
+        }
       } finally {
-        setLoadingSubscription(false)
+        if (!cancelled) {
+          setLoadingSubscription(false)
+        }
       }
     }
 
     fetchSubscription()
-  }, [session])
+    
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.backendAccessToken]) // Only depend on token, not entire session object
 
   const toggle = (id: string) => {
     setExpanded(prev => {

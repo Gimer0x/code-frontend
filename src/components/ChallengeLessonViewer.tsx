@@ -819,67 +819,36 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
     }
   }, [chatMessages, isLoadingChat])
 
-  // ALWAYS check DB first for saved code, only fall back to initial code if DB returns null/empty/fails
+  // Use progress from useStudentProgress hook to avoid duplicate requests
   useEffect(() => {
-    let cancelled = false
-    
-    const loadStudentCode = async () => {
-      try {
-        // ALWAYS check DB first - wait for response before showing any code
-        const res = await fetch(`/api/student/progress?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(lesson.id)}`)
-        
-        // If DB request succeeded, check for saved code
-        if (res.ok) {
-          const data = await res.json()
-          const progressArr = data?.data?.progress || []
-          const progressEntry = Array.isArray(progressArr) ? progressArr[0] : null
-          const files = progressEntry?.studentFiles || data?.data?.files || data?.files || []
-          // ✅ Backend saves files with contract name (e.g., "Events.sol"), not "Challenge.sol"
-          // Find the main .sol file by checking filePath, fileName, or path
-          const file = Array.isArray(files) && files.length
-            ? (files.find((f: any) => 
-                f.filePath?.endsWith('.sol') || 
-                f.fileName?.endsWith('.sol') || 
-                f.path?.endsWith('.sol')
-              ) || files[0])
-            : null
-          const content = file?.content || progressEntry?.codeContent || data?.codeContent || null
-          
-          // If DB has saved code, use it
-          if (!cancelled && typeof content === 'string' && content.length > 0) {
-            setCode(content)
-            lastSavedCodeRef.current = content
-            setLoadedFromDB(true)
-            setIsLoadingCode(false)
-            return
-          }
-        }
-        
-        // If DB returned 401/404/500 or no saved code, use initial code
-        if (!cancelled) {
-          const initialCode = lesson.initialCode || getDefaultSolidityTemplate()
-          setCode(initialCode)
-          lastSavedCodeRef.current = initialCode
-          setLoadedFromDB(false)
-          setIsLoadingCode(false)
-        }
-      } catch (error) {
-        // Network error: fall back to initial code
-        if (!cancelled) {
-          const initialCode = lesson.initialCode || getDefaultSolidityTemplate()
-          setCode(initialCode)
-          lastSavedCodeRef.current = initialCode
-          setLoadedFromDB(false)
-          setIsLoadingCode(false)
-        }
-      }
+    // Use progress from hook - don't fetch again
+    if (studentProgress?.codeContent) {
+      setCode(studentProgress.codeContent)
+      lastSavedCodeRef.current = studentProgress.codeContent
+      setLoadedFromDB(true)
+      setIsLoadingCode(false)
+      return
+    }
+
+    // Only fetch if hook doesn't have progress yet AND it's not loading
+    if (!progressLoading && !studentProgress) {
+      // Wait a bit for the hook to fetch, then use initial code
+      const timer = setTimeout(() => {
+        const initialCode = lesson.initialCode || getDefaultSolidityTemplate()
+        setCode(initialCode)
+        lastSavedCodeRef.current = initialCode
+        setLoadedFromDB(false)
+        setIsLoadingCode(false)
+      }, 500) // Wait 500ms for hook to fetch
+
+      return () => clearTimeout(timer)
     }
     
-    // Start DB check immediately - don't show code until DB check completes
-    loadStudentCode()
-    
-    return () => { cancelled = true }
-  }, [courseId, lesson.id, lesson.initialCode])
+    // If hook is still loading, keep loading state
+    if (progressLoading) {
+      setIsLoadingCode(true)
+    }
+  }, [studentProgress, progressLoading, courseId, lesson.id, lesson.initialCode])
 
   // Autosave removed per request
 
