@@ -43,11 +43,6 @@ export async function GET(request: NextRequest) {
 
     const backendResult = await backendResponse.json()
 
-    // Log for debugging
-    console.log('[Subscription Status] Backend response:', {
-      status: backendResponse.status,
-      result: backendResult,
-    })
 
     return NextResponse.json(backendResult, { status: backendResponse.status })
   } catch (error) {

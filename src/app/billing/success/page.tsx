@@ -45,18 +45,8 @@ export default function BillingSuccessPage() {
 
           const data = await response.json()
 
-          console.log('[Billing Success] Subscription check attempt', attempts + 1, ':', data)
-          console.log('[Billing Success] Subscription object:', data.subscription)
-
           if (data.success && data.subscription) {
             const sub = data.subscription
-            // Log subscription details for debugging
-            console.log('[Billing Success] Subscription details:', {
-              hasActivePlan: sub.hasActivePlan,
-              plan: sub.plan,
-              status: sub.status,
-              endsAt: sub.endsAt,
-            })
 
             // Check if subscription is active - multiple ways to detect
             const isActive = 
@@ -64,26 +54,20 @@ export default function BillingSuccessPage() {
               (sub.plan && sub.plan !== 'FREE' && 
                (sub.status === 'ACTIVE' || sub.status === 'TRIALING')) ||
               (sub.plan === 'MONTHLY' || sub.plan === 'YEARLY')
-            
-            console.log('[Billing Success] Is active?', isActive)
 
             if (isActive) {
-              console.log('[Billing Success] Subscription is active! Setting subscription and stopping.')
               setSubscription(sub)
               setLoading(false)
               return
             } else if (attempts >= maxAttempts - 1) {
               // On last attempt, show subscription even if not fully active yet
               // This handles cases where webhook hasn't processed yet
-              console.log('[Billing Success] Max attempts reached. Showing subscription data anyway.')
-              console.log('[Billing Success] Subscription plan is:', sub.plan, '- webhook may still be processing')
               setSubscription(sub)
               setLoading(false)
               return
             }
           } else if (attempts >= maxAttempts - 1) {
             // On last attempt, show error
-            console.log('[Billing Success] Max attempts reached with error. Showing error.')
             setError(data.error || 'Subscription may still be processing. Please check back in a few moments.')
             setLoading(false)
             return
@@ -150,12 +134,6 @@ export default function BillingSuccessPage() {
   // (payment might still be processing via webhook)
   const hasSubscription = subscription && (subscription.plan || subscription.status)
 
-  // Debug log for render
-  if (subscription) {
-    console.log('[Billing Success] Render - subscription:', subscription)
-    console.log('[Billing Success] Render - isActive:', isActive)
-    console.log('[Billing Success] Render - hasSubscription:', hasSubscription)
-  }
 
   if (subscription && isActive) {
     return (

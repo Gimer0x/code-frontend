@@ -61,11 +61,6 @@ export async function POST(request: NextRequest) {
 
     const backendResult = await backendResponse.json()
 
-    // Log for debugging
-    console.log('[Subscription Start] Backend response:', {
-      status: backendResponse.status,
-      result: backendResult,
-    })
 
     return NextResponse.json(backendResult, { status: backendResponse.status })
   } catch (error) {

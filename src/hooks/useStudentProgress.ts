@@ -171,24 +171,6 @@ export function useStudentProgress({
 
       const data = await requestPromise
 
-      // Debug: Log the response structure to see what the backend returns
-      // Also log the raw response to see what we're actually getting
-      console.log('[useStudentProgress] Raw response data:', data)
-      console.log('[useStudentProgress] Backend progress response:', {
-        success: data?.success,
-        hasProgress: !!data?.data?.progress,
-        progressLength: data?.data?.progress?.length,
-        progressEntry: data?.data?.progress?.[0],
-        hasFiles: !!data?.data?.files,
-        filesLength: data?.data?.files?.length,
-        dataKeys: data?.data ? Object.keys(data.data) : [],
-        topLevelKeys: Object.keys(data || {}),
-        fullData: data
-      })
-      
-      // Also log the full response as JSON for easier inspection
-      console.log('[useStudentProgress] Full response JSON:', JSON.stringify(data, null, 2))
-
       if (data?.success) {
         // Backend returns data in flat structure, not nested in data.data.progress
         // Response structure: { success: true, codeContent: "...", files: [...], isCompleted: false, ... }
@@ -206,13 +188,11 @@ export function useStudentProgress({
           ) || data.files[0]
           
           codeContent = solFile?.content || solFile?.code || null
-          console.log('[useStudentProgress] Extracted code from files array:', { codeContent: codeContent?.substring(0, 100) })
         }
         
         // Also check nested structure (backward compatibility)
         if (!codeContent && data.data?.progress?.[0]?.codeContent) {
           codeContent = data.data.progress[0].codeContent
-          console.log('[useStudentProgress] Extracted code from nested data.data.progress[0]:', { codeContent: codeContent?.substring(0, 100) })
         }
         
         // Also check data.data.files (backward compatibility)
@@ -224,14 +204,7 @@ export function useStudentProgress({
           ) || data.data.files[0]
           
           codeContent = solFile?.content || solFile?.code || null
-          console.log('[useStudentProgress] Extracted code from data.data.files:', { codeContent: codeContent?.substring(0, 100) })
         }
-        
-        console.log('[useStudentProgress] Final codeContent:', { 
-          hasCode: !!codeContent, 
-          codeLength: codeContent?.length,
-          codePreview: codeContent?.substring(0, 100)
-        })
         
         // Create progress object from flat response structure
         const progressEntry: ProgressData = {

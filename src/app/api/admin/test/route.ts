@@ -158,18 +158,7 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
 
     const backendResult = await backendResponse.json()
     
-    // Log backend response for debugging
-    console.log('=== BACKEND TEST RESPONSE ===')
-    console.log('Status:', backendResponse.status)
-    console.log('Response:', JSON.stringify(backendResult, null, 2))
-    console.log('Response keys:', Object.keys(backendResult))
-    console.log('Error code:', backendResult.code)
-    console.log('Result object:', backendResult.result)
-    console.log('Errors:', backendResult.errors || backendResult.result?.errors || [])
-    console.log('Warnings:', backendResult.warnings || backendResult.result?.warnings || backendResult.result?.compilation?.warnings || [])
-    console.log('Tests array:', backendResult.tests || backendResult.result?.tests || backendResult.testResults || backendResult.result?.testResults)
-    console.log('===========================')
-
+    
     // Check for compilation failures (backend returns 200 OK but with error code)
     const compilationErrorCodes = ['TEST_COMPILATION_FAILED', 'COMPILATION_FAILED', 'SOLUTION_COMPILATION_FAILED']
     if (backendResult.code && compilationErrorCodes.includes(backendResult.code)) {
@@ -185,13 +174,6 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
                                   []
       const compilationResult = backendResult.result?.compilation || backendResult.result || {}
       
-      // Log warnings for debugging
-      console.log('=== COMPILATION WARNINGS ===')
-      console.log('Warnings from backendResult.warnings:', backendResult.warnings)
-      console.log('Warnings from backendResult.result?.warnings:', backendResult.result?.warnings)
-      console.log('Warnings from backendResult.result?.compilation?.warnings:', backendResult.result?.compilation?.warnings)
-      console.log('Final compilationWarnings:', compilationWarnings)
-      console.log('==========================')
       
       return NextResponse.json({
         success: false,
@@ -290,15 +272,6 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
     const testCount = result.summary?.total ?? 
                       (backendResult.testCount ?? 
                        ((passedCount + failedCount) || tests.length))
-    
-    // Log parsed results for debugging
-    console.log('=== PARSED TEST RESULTS ===')
-    console.log('Tests found:', tests.length)
-    console.log('Tests array:', JSON.stringify(tests, null, 2))
-    console.log('Test count:', testCount)
-    console.log('Passed count:', passedCount)
-    console.log('Failed count:', failedCount)
-    console.log('==========================')
     
     return NextResponse.json({
       success: backendResult.success ?? (failedCount === 0 && testCount > 0),

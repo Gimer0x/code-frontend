@@ -125,11 +125,6 @@ export default function PricingPage() {
         return
       }
 
-      // Log for debugging
-      console.log('[Pricing] Subscription start response:', {
-        status: response.status,
-        data,
-      })
 
       if (!data.success) {
         // Handle different error codes

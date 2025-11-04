@@ -65,7 +65,6 @@ export default function GoogleSignInButton({
 
   useEffect(() => {
     if (!clientId) return
-    try { console.log('GIS clientId:', clientId) } catch {}
 
     function init() {
       if (!window.google?.accounts?.id) return
