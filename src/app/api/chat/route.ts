@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       outboundBody = { messages }
     }
 
-    const backendRes = await fetch('http://localhost:3002/api/ai/chat', {
+    const backendRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/ai/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

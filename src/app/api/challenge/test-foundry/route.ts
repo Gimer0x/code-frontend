@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     const cleanTestCode = testCode.trim().replace(/[\u200B-\u200D\uFEFF]/g, '')
 
     // Route testing to Foundry service
-    const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || 'http://localhost:3002'
+    const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || ''
     
     try {
       

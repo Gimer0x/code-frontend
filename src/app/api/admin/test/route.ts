@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
 const adminTestSchema = z.object({
   solutionCode: z.string(),

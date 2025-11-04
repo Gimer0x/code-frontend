@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing Authorization' }, { status: 401 })
     }
     const body = await request.text()
-    const backendRes = await fetch('http://localhost:3002/api/student/code', {
+    const backendRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/student/code`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -41,7 +41,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing Authorization' }, { status: 401 })
     }
     const body = await request.text()
-    const backendRes = await fetch('http://localhost:3002/api/student/code', {
+    const backendRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/student/code`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing Authorization' }, { status: 401 })
     }
     const url = new URL(request.url)
-    const backendRes = await fetch(`http://localhost:3002/api/student/code${url.search}`, {
+    const backendRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/student/code${url.search}`, {
       headers: { Authorization: authHeader },
     })
     const text = await backendRes.text()
@@ -92,7 +92,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing Authorization' }, { status: 401 })
     }
     const url = new URL(request.url)
-    const backendRes = await fetch(`http://localhost:3002/api/student/code${url.search}`, {
+    const backendRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/student/code${url.search}`, {
       method: 'DELETE',
       headers: { Authorization: authHeader },
     })

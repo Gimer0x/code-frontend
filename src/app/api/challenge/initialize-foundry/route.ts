@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize student session with Foundry service
-    const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || 'http://localhost:3002'
+    const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || ''
     
     try {
       // Create a unique session ID for this student-course-lesson combination

@@ -1,6 +1,6 @@
 // lib/apiClient.ts
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
 function getTokens() {
   if (typeof window === 'undefined') return { accessToken: null, refreshToken: null }

@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       ? `Bearer ${session.backendAccessToken}`
       : request.headers.get('authorization') || undefined
 
-    const backendResponse = await fetch(`http://localhost:3002/api/student/progress${params}`, {
+    const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/student/progress${params}`, {
       method: 'GET',
       headers: {
         ...(authHeader ? { Authorization: authHeader } : {}),
@@ -57,7 +57,7 @@ export async function PUT(request: NextRequest) {
       : request.headers.get('authorization') || undefined
 
     const body = await request.text()
-    const backendResponse = await fetch('http://localhost:3002/api/student/progress', {
+    const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/student/progress`, {
       method: 'PUT',
       headers: {
         ...(authHeader ? { Authorization: authHeader } : {}),

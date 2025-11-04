@@ -23,7 +23,7 @@ export const authOptions: NextAuthOptions = {
 
         try {
           // Authenticate with backend first
-          const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+          const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
           const res = await fetch(`${backendUrl}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -79,7 +79,7 @@ export const authOptions: NextAuthOptions = {
       // On first sign-in with Google, exchange id_token with backend for app tokens
       if (account?.provider === 'google' && (account as any).id_token) {
         try {
-          const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+          const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
           const res = await fetch(`${backendUrl}/api/user-auth/google`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

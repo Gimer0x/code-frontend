@@ -51,8 +51,7 @@ export function getThumbnailUrl(filename: string): string {
  * Handles various formats:
  * - `uploads/courses/...` -> `/api/images/uploads/courses/...`
  * - `http://uploads/...` -> `/api/images/uploads/...`
- * - `http://localhost:3002/uploads/...` -> `/api/images/uploads/...`
- * - Already normalized `/api/images/...` -> unchanged
+  * - Already normalized `/api/images/...` -> unchanged
  */
 export function normalizeImageUrl(imageUrl: string | null | undefined): string | null {
   if (!imageUrl) return null
@@ -65,7 +64,6 @@ export function normalizeImageUrl(imageUrl: string | null | undefined): string |
   // Remove protocol if present (http:// or https://)
   let normalized = imageUrl.replace(/^https?:\/\//, '')
   
-  // Remove domain if present (e.g., localhost:3002/)
   normalized = normalized.replace(/^[^\/]+\//, '')
   
   // Remove leading slash if present

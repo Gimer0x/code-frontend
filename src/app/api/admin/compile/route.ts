@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { withAuth, createErrorResponse } from '@/lib/auth-utils'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
 const adminCompileSchema = z.object({
   code: z.string(),

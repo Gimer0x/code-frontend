@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     try {
       const url = new URL(request.url)
       const params = url.search
-      const backendRes = await fetch(`http://localhost:3002/api/student/analytics${params}`, {
+      const backendRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/student/analytics${params}`, {
         headers: { Authorization: `Bearer ${session.backendAccessToken || ''}` },
       })
       const data = await backendRes.json().catch(() => null)
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   return withAuth(request, async (session) => {
     try {
       const body = await request.text()
-      const backendRes = await fetch('http://localhost:3002/api/student/analytics', {
+      const backendRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/student/analytics`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.backendAccessToken || ''}`,

@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     if (validatedData.language.toLowerCase() === 'solidity') {
       try {        
         // Call Foundry service to create course project
-        const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || 'http://localhost:3002'
+        const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || ''
         const courseData = {
           courseId: course.id,
           title: course.title,

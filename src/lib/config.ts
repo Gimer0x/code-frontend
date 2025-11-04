@@ -39,7 +39,7 @@ export const flyioConfig = {
 
 // Local Foundry service configuration
 export const foundryConfig = {
-  serviceUrl: process.env.FOUNDRY_SERVICE_URL || 'http://localhost:3002',
+  serviceUrl: process.env.FOUNDRY_SERVICE_URL || '',
   timeout: parseInt(process.env.FOUNDRY_TIMEOUT || '30000'),
   retryAttempts: parseInt(process.env.FOUNDRY_RETRY_ATTEMPTS || '2'),
   retryDelay: parseInt(process.env.FOUNDRY_RETRY_DELAY || '1000'),

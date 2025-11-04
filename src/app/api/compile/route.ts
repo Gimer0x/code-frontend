@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const { courseId, lessonId, code, contractName } = compileSchema.parse(body)
 
     // Call Foundry service for compilation
-    const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || 'http://localhost:3002'
+    const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || ''
     
     try {
       const foundryResponse = await fetch(`${foundryServiceUrl}/api/compile`, {
@@ -92,6 +92,6 @@ export async function GET() {
   return NextResponse.json({
     service: 'compile-api',
     status: 'active',
-    foundryServiceUrl: process.env.FOUNDRY_SERVICE_URL || 'http://localhost:3002'
+    foundryServiceUrl: process.env.FOUNDRY_SERVICE_URL || ''
   })
 }

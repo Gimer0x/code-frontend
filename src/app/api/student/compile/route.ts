@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     const session: any = await getServerSession(authOptions)
     const authHeader = session?.backendAccessToken ? `Bearer ${session.backendAccessToken}` : request.headers.get('authorization') || undefined
     const body = await request.text()
-    const backendRes = await fetch('http://localhost:3002/api/student/compile', {
+    const backendRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/student/compile`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

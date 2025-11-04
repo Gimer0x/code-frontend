@@ -19,7 +19,7 @@ export async function verifyJWT(request: NextRequest): Promise<JWTPayload | null
     
     // In a real implementation, you would verify the JWT signature here
     // For now, we'll make a request to the backend to verify the token
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'}/api/auth/profile`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/auth/profile`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'

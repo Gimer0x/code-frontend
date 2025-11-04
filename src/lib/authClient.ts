@@ -2,7 +2,7 @@
 import { apiFetch } from './apiClient'
 
 export async function registerUser(input: { email: string; password: string; name?: string }) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'}/api/auth/register`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -12,7 +12,7 @@ export async function registerUser(input: { email: string; password: string; nam
 }
 
 export async function loginUser(input: { email: string; password: string }) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'}/api/auth/login`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -22,7 +22,7 @@ export async function loginUser(input: { email: string; password: string }) {
 }
 
 export async function googleLoginWithIdToken(idToken: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'}/api/user-auth/google`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/user-auth/google`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ idToken }),

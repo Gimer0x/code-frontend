@@ -4,7 +4,7 @@ class DappDojoAPI {
   private cache: Map<string, { data: any; expiresAt: number }> = new Map()
   private defaultTtlMs = 10_000 // 10s cache for GETs
 
-  constructor(baseURL = 'http://localhost:3002') {
+  constructor(baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || '') {
     this.baseURL = baseURL;
   }
 

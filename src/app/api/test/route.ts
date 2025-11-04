@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
 
     // Call Foundry service for testing (new course-based architecture)
-    const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || 'http://localhost:3002'
+    const foundryServiceUrl = process.env.FOUNDRY_SERVICE_URL || ''
     
     try {
       const foundryPayload = {

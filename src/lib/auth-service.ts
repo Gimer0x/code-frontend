@@ -5,7 +5,7 @@ class AuthService {
   private inFlightProfile: Promise<any> | null = null;
 
   constructor() {
-    this.baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002';
+    this.baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
     this.accessToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     this.refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
   }

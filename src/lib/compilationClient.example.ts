@@ -148,7 +148,7 @@ export async function checkServiceHealth() {
  */
 export const environmentConfig = {
   development: {
-    foundryServiceUrl: 'http://localhost:3002',
+    foundryServiceUrl: process.env.FOUNDRY_SERVICE_URL || '',
     timeout: 30000,
     retryAttempts: 2
   },

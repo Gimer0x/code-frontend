@@ -3,7 +3,7 @@ import { createErrorResponse } from '@/lib/auth-utils'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
 /**
  * Reset student code to initial state

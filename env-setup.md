@@ -3,8 +3,6 @@
 Create a `.env.local` file in the root of your frontend project with the following variables:
 
 ```env
-# API Configuration
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3002
 
 # NextAuth.js (keeping for compatibility, but not used in new auth system)
 NEXTAUTH_URL=http://localhost:3000
