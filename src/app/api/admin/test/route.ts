@@ -132,6 +132,46 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
     // If lessonId is not provided, backend will use code from request body
     const courseId = parsed.courseId || 'default-course'
     
+    // Fetch course configuration from backend to get dependencies and remappings
+    // This ensures the backend has the necessary dependencies (like OpenZeppelin) configured
+    let courseConfig = null
+    if (courseId && courseId !== 'default-course') {
+      try {
+        // Try both path parameter and query parameter approaches for backend compatibility
+        let configResponse = await fetch(`${BACKEND_URL}/api/courses/${courseId}/config`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        // If path parameter fails, try query parameter
+        if (!configResponse.ok) {
+          configResponse = await fetch(`${BACKEND_URL}/api/courses/config?courseId=${courseId}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${adminToken}`,
+              'Content-Type': 'application/json'
+            }
+          })
+        }
+        
+        if (configResponse.ok) {
+          const configData = await configResponse.json()
+          if (configData.success && configData.configuration) {
+            courseConfig = {
+              dependencies: configData.configuration.dependencies || [],
+              remappings: configData.configuration.remappings || {},
+              foundryConfig: configData.configuration.foundryConfig || {}
+            }
+          }
+        }
+      } catch (configError) {
+        // If config fetch fails, continue without it - backend will use defaults
+      }
+    }
+    
     // Build request body
     const requestBody: any = {
       courseId,
@@ -140,6 +180,14 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
       contractName,
       testName,
       options: {}
+    }
+    
+    // Include course configuration if available (dependencies, remappings, foundryConfig)
+    // This ensures the backend can properly set up the Foundry project with dependencies
+    if (courseConfig) {
+      requestBody.dependencies = courseConfig.dependencies
+      requestBody.remappings = courseConfig.remappings
+      requestBody.foundryConfig = courseConfig.foundryConfig
     }
     
     // Include lessonId if provided - backend will prioritize solution code from database
