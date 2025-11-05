@@ -6,12 +6,16 @@ const nextConfig: NextConfig = {
   generateBuildId: async () => {
     return `build-${Date.now()}`
   },
-  // Proxy uploads to backend
+  // Proxy uploads to backend (fallback - primary method is /api/images/[...path])
   async rewrites() {
+    const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+    if (!backendUrl) {
+      return [];
+    }
     return [
       {
         source: '/uploads/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_BASE_URL}/uploads/:path*`,
+        destination: `${backendUrl}/uploads/:path*`,
       },
     ];
   },

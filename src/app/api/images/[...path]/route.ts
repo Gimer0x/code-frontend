@@ -7,6 +7,10 @@ export async function GET(
   context: { params: Promise<{ path: string[] }> }
 ) {
   try {
+    if (!BACKEND_URL) {
+      return NextResponse.json({ error: 'Backend URL not configured' }, { status: 500 })
+    }
+
     const { path } = await context.params
     let imagePath = Array.isArray(path) ? path.join('/') : path
     
@@ -24,14 +28,29 @@ export async function GET(
       }
     }
     
-    // Construct the backend URL
-    const imageUrl = `${BACKEND_URL}/${imagePath}`
+    // Construct the backend URL - ensure no double slashes
+    const backendBase = BACKEND_URL.endsWith('/') ? BACKEND_URL.slice(0, -1) : BACKEND_URL
+    const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath
+    const imageUrl = `${backendBase}/${cleanPath}`
     
-    const response = await fetch(imageUrl)
+    const response = await fetch(imageUrl, {
+      headers: {
+        'Accept': 'image/*',
+      },
+    })
     
     if (!response.ok) {
-      console.error(`Image proxy failed: ${imageUrl} returned ${response.status}`)
-      return NextResponse.json({ error: 'Image not found' }, { status: 404 })
+      // If 404, return a more helpful error
+      if (response.status === 404) {
+        return NextResponse.json({ 
+          error: 'Image not found',
+          message: `Image not found on backend: ${imageUrl}`
+        }, { status: 404 })
+      }
+      return NextResponse.json({ 
+        error: 'Failed to fetch image',
+        message: `Backend returned ${response.status} for ${imageUrl}`
+      }, { status: response.status })
     }
     
     const imageBuffer = await response.arrayBuffer()
@@ -44,7 +63,9 @@ export async function GET(
     })
     
   } catch (error) {
-    console.error('Image proxy error:', error)
-    return NextResponse.json({ error: 'Failed to load image' }, { status: 500 })
+    return NextResponse.json({ 
+      error: 'Failed to load image',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
