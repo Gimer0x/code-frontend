@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAuth, createErrorResponse, createSuccessResponse } from '@/lib/auth-utils'
+import { withAuth, createErrorResponse } from '@/lib/auth-utils'
 import { z } from 'zod'
 
 // Validation schemas

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAuth, createErrorResponse, createSuccessResponse } from '@/lib/auth-utils'
 
 // Mock dependencies data - in a real app, this would come from a database or external API
 const mockDependencies = [

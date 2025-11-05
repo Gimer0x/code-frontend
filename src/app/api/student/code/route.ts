@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withAuth, createErrorResponse } from '@/lib/auth-utils'
+import { createErrorResponse } from '@/lib/auth-utils'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
