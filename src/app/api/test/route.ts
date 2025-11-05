@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 const testSchema = z.object({
@@ -40,26 +39,8 @@ export async function POST(request: NextRequest) {
     const cleanTestCode = testCode.trim().replace(/[\u200B-\u200D\uFEFF]/g, '')
     
 
-    // Resolve the correct lesson ID if it's a temporary ID
-    let actualLessonId = lessonId
-    if (lessonId && lessonId.startsWith('lesson-')) {
-      // This is a temporary lesson ID, find the actual lesson in the database
-      const lesson = await prisma.lesson.findFirst({
-        where: {
-          module: {
-            courseId: courseId
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      })
-      
-      if (lesson) {
-        actualLessonId = lesson.id
-      } else {
-      }
-    }
+    // Use lessonId as-is (backend will handle lesson lookup if needed)
+    const actualLessonId = lessonId || 'default'
 
     // Extract contract name from cleaned solution code
     let contractName = 'TempContract' // default fallback

@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  // Fix port mismatch for authentication
-  if (request.nextUrl.port === '3001' && request.nextUrl.pathname.startsWith('/api/auth/')) {
+  // Fix port mismatch for authentication (only in development)
+  // Skip in production/Vercel where port is handled automatically
+  if (process.env.NODE_ENV === 'development' && 
+      request.nextUrl.port === '3001' && 
+      request.nextUrl.pathname.startsWith('/api/auth/')) {
     const correctUrl = new URL(request.url)
     correctUrl.port = '3000'
     return NextResponse.redirect(correctUrl)

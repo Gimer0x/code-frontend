@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { hashPassword } from '@/lib/auth-utils'
 import { passwordResetSchema } from '@/lib/validation'
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
+
+/**
+ * Proxy password reset to backend
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -16,40 +19,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { token, newPassword } = validationResult.data
-
-    // Find valid reset token
-    const resetRecord = await prisma.passwordReset.findFirst({
-      where: {
-        token,
-        expiresAt: {
-          gt: new Date()
-        }
-      }
+    // Forward request to backend
+    const backendResponse = await fetch(`${BACKEND_URL}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(validationResult.data),
     })
 
-    if (!resetRecord) {
-      return NextResponse.json(
-        { error: 'Invalid or expired reset token' },
-        { status: 400 }
-      )
+    const data = await backendResponse.json()
+
+    if (!backendResponse.ok) {
+      return NextResponse.json(data, { status: backendResponse.status })
     }
 
-    // Hash new password
-    const hashedPassword = await hashPassword(newPassword)
-
-    // Update user password
-    await prisma.user.update({
-      where: { email: resetRecord.email },
-      data: { password: hashedPassword }
-    })
-
-    // Delete used reset token
-    await prisma.passwordReset.delete({
-      where: { id: resetRecord.id }
-    })
-
-    return NextResponse.json({ message: 'Password reset successfully' })
+    return NextResponse.json(data)
 
   } catch (error) {
     return NextResponse.json(

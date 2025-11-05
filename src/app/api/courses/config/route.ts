@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { getCompilationClient } from '@/lib/compilationClient'
 import { withAuth, createErrorResponse, createSuccessResponse } from '@/lib/auth-utils'
 import { z } from 'zod'
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
 // Validation schemas
 const foundryConfigSchema = z.object({
@@ -41,31 +44,25 @@ export async function GET(request: NextRequest) {
         return createErrorResponse('Course ID is required', 400)
       }
 
-      // Get course project from database
-      const courseProject = await prisma.courseProject.findFirst({
-        where: { courseId },
-        include: {
-          course: {
-            select: {
-              id: true,
-              title: true,
-              language: true,
-              creatorId: true
-            }
-          }
+      // Try to get from backend first
+      try {
+        const backendResponse = await fetch(`${BACKEND_URL}/api/courses/${courseId}/config`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.backendAccessToken || ''}`,
+          },
+        })
+
+        if (backendResponse.ok) {
+          const data = await backendResponse.json()
+          return NextResponse.json(data)
         }
-      })
-
-      if (!courseProject) {
-        return createErrorResponse('Course project not found', 404)
+      } catch (backendError) {
+        // Backend unavailable, continue with local check
       }
 
-      // Check authorization
-      if (session.user.role !== 'ADMIN' && courseProject.course.creatorId !== session.user.id) {
-        return createErrorResponse('Unauthorized to access this course project', 403)
-      }
-
-      // Get current configuration from Foundry service
+      // Fallback: Get current configuration from Foundry service
       const client = getCompilationClient()
       let serviceConfig = null
 
@@ -80,9 +77,10 @@ export async function GET(request: NextRequest) {
           }
         }
       } catch (statusError) {
+        // Service unavailable
       }
 
-      // Default configuration if none exists
+      // Default configuration
       const defaultFoundryConfig = {
         solc: '0.8.30',
         optimizer: true,
@@ -104,19 +102,16 @@ export async function GET(request: NextRequest) {
 
       return createSuccessResponse({
         courseId,
-        course: courseProject.course,
         configuration: {
-          foundryConfig: courseProject.foundryConfig || defaultFoundryConfig,
-          remappings: courseProject.remappings || defaultRemappings,
-          dependencies: courseProject.dependencies || [],
-          templates: courseProject.templates || []
+          foundryConfig: serviceConfig?.foundryConfig || defaultFoundryConfig,
+          remappings: serviceConfig?.remappings || defaultRemappings,
+          dependencies: serviceConfig?.dependencies || [],
+          templates: serviceConfig?.templates || []
         },
-        serviceConfig,
         defaultConfiguration: {
           foundryConfig: defaultFoundryConfig,
           remappings: defaultRemappings
-        },
-        lastUpdated: courseProject.updatedAt
+        }
       })
 
     } catch (error) {
@@ -134,77 +129,25 @@ export async function PUT(request: NextRequest) {
       const body = await request.json()
       const validatedData = updateConfigSchema.parse(body)
 
-      // Get course project from database
-      const courseProject = await prisma.courseProject.findFirst({
-        where: { courseId: validatedData.courseId },
-        include: {
-          course: {
-            select: {
-              id: true,
-              title: true,
-              language: true,
-              creatorId: true
-            }
-          }
-        }
-      })
-
-      if (!courseProject) {
-        return createErrorResponse('Course project not found', 404)
-      }
-
-      // Check authorization
-      if (session.user.role !== 'ADMIN' && courseProject.course.creatorId !== session.user.id) {
-        return createErrorResponse('Unauthorized to access this course project', 403)
-      }
-
-      // Update configuration on Foundry service
-      const client = getCompilationClient()
-      let updateResult = null
-
-      try {
-        const result = await client.updateProjectConfig(validatedData.courseId, {
-          foundryConfig: validatedData.foundryConfig,
-          remappings: validatedData.remappings
-        })
-
-        if (result.success) {
-          updateResult = result
-        } else {
-          throw new Error(result.error || 'Configuration update failed')
-        }
-      } catch (updateError) {
-        return createErrorResponse(
-          `Failed to update configuration: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`,
-          500
-        )
-      }
-
-      // Update configuration in database
-      const updatedProject = await prisma.courseProject.update({
-        where: { id: courseProject.id },
-        data: {
-          foundryConfig: validatedData.foundryConfig || courseProject.foundryConfig,
-          remappings: validatedData.remappings || courseProject.remappings,
-          updatedAt: new Date()
-        }
-      })
-
-      return createSuccessResponse({
-        message: 'Course configuration updated successfully',
-        courseId: validatedData.courseId,
-        configuration: {
-          foundryConfig: updatedProject.foundryConfig,
-          remappings: updatedProject.remappings,
-          dependencies: updatedProject.dependencies,
-          templates: updatedProject.templates
+      // Forward request to backend
+      const backendResponse = await fetch(`${BACKEND_URL}/api/courses/${validatedData.courseId}/config`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.backendAccessToken || ''}`,
         },
-        updateResult,
-        updatedAt: updatedProject.updatedAt
+        body: JSON.stringify(validatedData),
       })
+
+      const data = await backendResponse.json()
+
+      if (!backendResponse.ok) {
+        return NextResponse.json(data, { status: backendResponse.status })
+      }
+
+      return NextResponse.json(data)
 
     } catch (error) {
-      
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
           details: error.issues.map(issue => ({
@@ -236,94 +179,22 @@ export async function DELETE(request: NextRequest) {
         return createErrorResponse('Course ID is required', 400)
       }
 
-      // Get course project from database
-      const courseProject = await prisma.courseProject.findFirst({
-        where: { courseId },
-        include: {
-          course: {
-            select: {
-              id: true,
-              title: true,
-              language: true,
-              creatorId: true
-            }
-          }
-        }
-      })
-
-      if (!courseProject) {
-        return createErrorResponse('Course project not found', 404)
-      }
-
-      // Check authorization
-      if (session.user.role !== 'ADMIN' && courseProject.course.creatorId !== session.user.id) {
-        return createErrorResponse('Unauthorized to access this course project', 403)
-      }
-
-      // Default configuration
-      const defaultFoundryConfig = {
-        solc: '0.8.30',
-        optimizer: true,
-        optimizerRuns: 200,
-        viaIR: false,
-        evmVersion: 'london',
-        gasReports: [],
-        gasReportsIgnore: [],
-        extraOutput: ['metadata'],
-        extraOutputFiles: ['metadata'],
-        bytecodeHash: 'none',
-        cborMetadata: true
-      }
-
-      const defaultRemappings = {
-        'forge-std/': 'lib/forge-std/src/',
-        '@openzeppelin/': 'lib/openzeppelin-contracts/'
-      }
-
-      // Reset configuration on Foundry service
-      const client = getCompilationClient()
-      let resetResult = null
-
-      try {
-        const result = await client.updateProjectConfig(courseId, {
-          foundryConfig: defaultFoundryConfig,
-          remappings: defaultRemappings
-        })
-
-        if (result.success) {
-          resetResult = result
-        } else {
-          throw new Error(result.error || 'Configuration reset failed')
-        }
-      } catch (resetError) {
-        return createErrorResponse(
-          `Failed to reset configuration: ${resetError instanceof Error ? resetError.message : 'Unknown error'}`,
-          500
-        )
-      }
-
-      // Reset configuration in database
-      const updatedProject = await prisma.courseProject.update({
-        where: { id: courseProject.id },
-        data: {
-          foundryConfig: defaultFoundryConfig,
-          remappings: defaultRemappings,
-          updatedAt: new Date()
-        }
-      })
-
-      return createSuccessResponse({
-        message: 'Course configuration reset to defaults',
-        courseId,
-        configuration: {
-          foundryConfig: updatedProject.foundryConfig,
-          remappings: updatedProject.remappings,
-          dependencies: updatedProject.dependencies,
-          templates: updatedProject.templates
+      // Forward request to backend
+      const backendResponse = await fetch(`${BACKEND_URL}/api/courses/${courseId}/config`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.backendAccessToken || ''}`,
         },
-        resetResult,
-        updatedAt: updatedProject.updatedAt
       })
+
+      const data = await backendResponse.json()
+
+      if (!backendResponse.ok) {
+        return NextResponse.json(data, { status: backendResponse.status })
+      }
+
+      return NextResponse.json(data)
 
     } catch (error) {
       return createErrorResponse('Failed to reset course configuration', 500)

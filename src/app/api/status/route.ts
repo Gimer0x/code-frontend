@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { getCompilationClient } from '@/lib/compilationClient'
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
+
 /**
- * Service status endpoint for Railway deployment
- * Provides detailed information about all services and their status
+ * Service status endpoint for deployment
+ * Proxies to backend for detailed status, returns basic status if backend unavailable
  */
 export async function GET(request: NextRequest) {
   try {
@@ -14,14 +15,14 @@ export async function GET(request: NextRequest) {
     
     // Basic status for unauthenticated users
     const basicStatus = {
-      service: 'dappdojo-api',
+      service: 'dappdojo-frontend',
       status: 'active',
       environment: process.env.NODE_ENV || 'development',
       version: '1.0.0',
       timestamp: new Date().toISOString(),
       deployment: {
-        platform: 'railway',
-        region: process.env.RAILWAY_REGION || 'unknown'
+        platform: 'vercel',
+        region: process.env.VERCEL_REGION || 'unknown'
       }
     }
 
@@ -30,11 +31,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(basicStatus)
     }
 
-    // Enhanced status for authenticated users
+    // Try to get enhanced status from backend
+    try {
+      const backendResponse = await fetch(`${BACKEND_URL}/api/status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session.backendAccessToken ? { 'Authorization': `Bearer ${session.backendAccessToken}` } : {}),
+        },
+      })
+
+      if (backendResponse.ok) {
+        const backendData = await backendResponse.json()
+        return NextResponse.json({
+          ...basicStatus,
+          ...backendData,
+          service: 'dappdojo-frontend',
+          deployment: {
+            platform: 'vercel',
+            region: process.env.VERCEL_REGION || 'unknown'
+          }
+        })
+      }
+    } catch (backendError) {
+      // Backend unavailable, continue with local status
+    }
+
+    // Enhanced status without database (check Fly.io if available)
     const enhancedStatus = {
       ...basicStatus,
       services: {
-        database: await checkDatabaseStatus(),
         flyio: await checkFlyioStatus(),
         auth: { status: 'active' }
       },
@@ -57,47 +83,11 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     return NextResponse.json({
-      service: 'dappdojo-api',
+      service: 'dappdojo-frontend',
       status: 'error',
       error: error instanceof Error ? error.message : 'Status check failed',
       timestamp: new Date().toISOString()
     }, { status: 500 })
-  }
-}
-
-/**
- * Check database status and performance
- */
-async function checkDatabaseStatus() {
-  try {
-    const startTime = Date.now()
-    
-    // Test basic connectivity
-    await prisma.$queryRaw`SELECT 1`
-    
-    // Get some basic stats
-    const [courseCount, userCount, progressCount] = await Promise.all([
-      prisma.course.count(),
-      prisma.user.count(),
-      prisma.studentProgress.count()
-    ])
-    
-    const responseTime = Date.now() - startTime
-    
-    return {
-      status: 'healthy',
-      responseTime,
-      stats: {
-        courses: courseCount,
-        users: userCount,
-        progressEntries: progressCount
-      }
-    }
-  } catch (error) {
-    return {
-      status: 'unhealthy',
-      error: error instanceof Error ? error.message : 'Database error'
-    }
   }
 }
 
@@ -127,12 +117,12 @@ async function checkFlyioStatus() {
 }
 
 /**
- * Get service metrics for monitoring
+ * Get service metrics for monitoring (Admin only)
  */
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    if (!session?.backendAccessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -141,10 +131,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // Proxy to backend for metrics
+    try {
+      const backendResponse = await fetch(`${BACKEND_URL}/api/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.backendAccessToken}`,
+        },
+      })
+
+      if (backendResponse.ok) {
+        const data = await backendResponse.json()
+        return NextResponse.json(data)
+      }
+    } catch (backendError) {
+      // Backend unavailable
+    }
+
+    // Fallback metrics without database
     const metrics = {
       timestamp: new Date().toISOString(),
-      database: await getDatabaseMetrics(),
-      flyio: await getFlyioMetrics(),
       system: {
         uptime: process.uptime(),
         memory: process.memoryUsage(),
@@ -158,70 +165,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       error: 'Failed to get metrics'
     }, { status: 500 })
-  }
-}
-
-/**
- * Get database metrics
- */
-async function getDatabaseMetrics() {
-  try {
-    const [
-      courseCount,
-      userCount,
-      progressCount,
-      activeUsers,
-      recentProgress
-    ] = await Promise.all([
-      prisma.course.count(),
-      prisma.user.count(),
-      prisma.studentProgress.count(),
-      prisma.user.count({
-        where: {
-          lastLoginAt: {
-            gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
-          }
-        }
-      }),
-      prisma.studentProgress.count({
-        where: {
-          lastSavedAt: {
-            gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
-          }
-        }
-      })
-    ])
-
-    return {
-      courses: courseCount,
-      users: userCount,
-      progressEntries: progressCount,
-      activeUsers24h: activeUsers,
-      recentProgress24h: recentProgress
-    }
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Database metrics failed' }
-  }
-}
-
-/**
- * Get Fly.io service metrics
- */
-async function getFlyioMetrics() {
-  try {
-    const client = getCompilationClient()
-    const status = await client.getStatus()
-    
-    return {
-      status: status.status,
-      environment: status.environment,
-      features: status.features,
-      url: process.env.FLY_FOUNDRY_SERVICE_URL || 'not configured'
-    }
-  } catch (error) {
-    return { 
-      error: error instanceof Error ? error.message : 'Fly.io metrics failed',
-      url: process.env.FLY_FOUNDRY_SERVICE_URL || 'not configured'
-    }
   }
 }

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { generatePasswordResetToken } from '@/lib/auth-utils'
-import { createDevEmailService } from '@/lib/email'
 import { forgotPasswordSchema, RateLimiter } from '@/lib/validation'
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
+
+/**
+ * Proxy forgot password to backend
+ */
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting for password reset requests
@@ -28,60 +30,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { email } = validationResult.data
-
-    // Find user by email
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() }
+    // Forward request to backend
+    const backendResponse = await fetch(`${BACKEND_URL}/api/auth/forgot-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(validationResult.data),
     })
 
-    if (!user) {
-      // Don't reveal if user exists or not for security
-      return NextResponse.json({ message: 'If an account exists, a password reset email has been sent' })
-    }
+    const data = await backendResponse.json()
 
-    // Generate reset token
-    const resetToken = generatePasswordResetToken()
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
-
-    // Save reset token to database
-    await prisma.passwordReset.create({
-      data: {
-        email: user.email,
-        token: resetToken,
-        expiresAt
-      }
-    })
-
-    // Send reset email
-    const emailService = createDevEmailService()
-    const resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/reset-password`
-    
-    const emailSent = await emailService.sendPasswordResetEmail(
-      user.email,
-      resetToken,
-      resetUrl
-    )
-
-    if (emailSent) {
-      // In development mode, return the reset token for testing
-      if (process.env.NODE_ENV === 'development') {
-        return NextResponse.json({ 
-          message: 'Password reset email sent successfully!',
-          resetToken: resetToken, // Only in development
-          resetUrl: resetUrl
-        })
-      } else {
-        return NextResponse.json({ 
-          message: 'If an account exists, a password reset email has been sent' 
-        })
-      }
-    } else {
-      return NextResponse.json(
-        { error: 'Failed to send reset email' },
-        { status: 500 }
-      )
-    }
+    // Return backend response (may include resetToken in development)
+    return NextResponse.json(data, { status: backendResponse.status })
 
   } catch (error) {
     return NextResponse.json(

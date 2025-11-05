@@ -1,11 +1,8 @@
-import nodemailer from 'nodemailer'
-
-interface EmailConfig {
-  host: string
-  port: number
-  user: string
-  pass: string
-}
+/**
+ * Simple email service for password reset
+ * In development, returns the reset token in the response
+ * In production, you should integrate with a real email service (SendGrid, AWS SES, etc.)
+ */
 
 interface SendEmailParams {
   to: string
@@ -14,34 +11,31 @@ interface SendEmailParams {
 }
 
 export class EmailService {
-  private transporter: nodemailer.Transporter
-
-  constructor(config: EmailConfig) {
-    this.transporter = nodemailer.createTransport({
-      host: config.host,
-      port: config.port,
-      secure: false,
-      auth: {
-        user: config.user,
-        pass: config.pass,
-      },
-    })
-  }
-
+  /**
+   * Simulate sending an email
+   * In production, integrate with your email provider here
+   */
   async sendEmail({ to, subject, html }: SendEmailParams): Promise<boolean> {
-    try {
-      await this.transporter.sendMail({
-        from: process.env.SMTP_USER || 'noreply@dappdojo.com',
+    // Simulate email sending delay
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Log email details in development (for debugging)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Email Service] Simulated email send:', {
         to,
         subject,
-        html,
+        htmlLength: html.length
       })
-      return true
-    } catch (error) {
-      return false
     }
+    
+    // Always return true (simulation)
+    // In production, replace this with actual email sending logic
+    return true
   }
 
+  /**
+   * Send password reset email
+   */
   async sendPasswordResetEmail(email: string, resetToken: string, resetUrl: string): Promise<boolean> {
     const subject = 'Password Reset Request - DappDojo'
     const html = `
@@ -66,40 +60,15 @@ export class EmailService {
   }
 }
 
-// Create a mock email service for development
-export const createMockEmailService = (): EmailService => {
-  return new EmailService({
-    host: 'localhost',
-    port: 1025,
-    user: 'mock@dappdojo.com',
-    pass: 'mock-password',
-  })
+/**
+ * Create email service instance
+ * In production, you can configure this to use a real email provider
+ */
+export const createEmailService = (): EmailService => {
+  return new EmailService()
 }
 
-// Create a development email service that simulates email sending
-export class DevEmailService extends EmailService {
-  constructor() {
-    super({
-      host: 'localhost',
-      port: 1025,
-      user: 'dev@dappdojo.com',
-      pass: 'dev-password',
-    })
-  }
-
-  async sendEmail(): Promise<boolean> {
-    // Simulate email sending delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    return true
-  }
-
-  async sendPasswordResetEmail(): Promise<boolean> {
-    // Simulate email sending delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    return true
-  }
-}
-
+// For backward compatibility
 export const createDevEmailService = (): EmailService => {
-  return new DevEmailService()
+  return createEmailService()
 }

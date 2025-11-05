@@ -2,8 +2,13 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  // Force cache busting for development
+  // Generate stable build ID for production (required for Vercel)
   generateBuildId: async () => {
+    // In production/Vercel, use a stable build ID
+    // In development, use timestamp for cache busting
+    if (process.env.NODE_ENV === 'production') {
+      return process.env.VERCEL_GIT_COMMIT_SHA || `build-${Date.now()}`
+    }
     return `build-${Date.now()}`
   },
   // Proxy uploads to backend (fallback - primary method is /api/images/[...path])
@@ -19,10 +24,38 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Development CSP: allow eval for Next.js source maps and allow Google Identity scripts
+  // Production headers for security
   async headers() {
     const isDev = process.env.NODE_ENV !== 'production'
-    if (!isDev) return []
+    
+    // Production headers
+    if (!isDev) {
+      return [
+        {
+          source: '/(.*)',
+          headers: [
+            {
+              key: 'X-Frame-Options',
+              value: 'DENY'
+            },
+            {
+              key: 'X-Content-Type-Options',
+              value: 'nosniff'
+            },
+            {
+              key: 'Referrer-Policy',
+              value: 'strict-origin-when-cross-origin'
+            },
+            {
+              key: 'X-XSS-Protection',
+              value: '1; mode=block'
+            }
+          ]
+        }
+      ]
+    }
+    
+    // Development CSP: allow eval for Next.js source maps and allow Google Identity scripts
     return [
       {
         source: '/(.*)',

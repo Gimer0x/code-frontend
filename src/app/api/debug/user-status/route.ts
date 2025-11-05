@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
+
+/**
+ * Proxy user status check to backend
+ * Debug endpoint - should be removed or protected in production
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -10,39 +15,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Email parameter required' }, { status: 400 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        subscriptionPlan: true,
-        subscriptionStatus: true,
-        stripeCustomerId: true,
-        stripeSubscriptionId: true,
-        trialEndsAt: true,
-        subscriptionEndsAt: true,
-        createdAt: true,
-        updatedAt: true,
-      }
+    // Forward request to backend
+    const backendResponse = await fetch(`${BACKEND_URL}/api/debug/user-status?email=${encodeURIComponent(email)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
     })
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    const data = await backendResponse.json()
+
+    if (!backendResponse.ok) {
+      return NextResponse.json(data, { status: backendResponse.status })
     }
 
-    return NextResponse.json({
-      user,
-      accessInfo: {
-        canAccessAllModules: ['MONTHLY', 'YEARLY'].includes(user.subscriptionPlan),
-        canAccessFirstModule: user.subscriptionPlan === 'FREE' || ['MONTHLY', 'YEARLY'].includes(user.subscriptionPlan),
-        isTrialActive: user.subscriptionStatus === 'TRIALING',
-        isSubscriptionActive: ['ACTIVE', 'TRIALING'].includes(user.subscriptionStatus),
-      }
-    })
+    return NextResponse.json(data)
+
   } catch (error) {
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

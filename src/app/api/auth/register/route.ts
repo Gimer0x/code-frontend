@@ -1,67 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server'
-import bcrypt from 'bcryptjs'
-import { prisma } from '@/lib/prisma'
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
+
+/**
+ * Proxy user registration to backend
+ */
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, password } = await request.json()
+    const body = await request.json()
 
     // Validate input
-    if (!name || !email || !password) {
+    if (!body.name || !body.email || !body.password) {
       return NextResponse.json(
         { error: 'Name, email, and password are required' },
         { status: 400 }
       )
     }
 
-    if (password.length < 6) {
+    if (body.password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters' },
         { status: 400 }
       )
     }
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
+    // Forward request to backend
+    const backendResponse = await fetch(`${BACKEND_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
     })
 
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'User with this email already exists' },
-        { status: 400 }
-      )
+    const data = await backendResponse.json()
+
+    if (!backendResponse.ok) {
+      return NextResponse.json(data, { status: backendResponse.status })
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12)
+    return NextResponse.json(data, { status: backendResponse.status })
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: 'STUDENT',
-        isPremium: false,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isPremium: true,
-        createdAt: true,
-      }
-    })
-
-    return NextResponse.json(
-      { 
-        message: 'User created successfully',
-        user 
-      },
-      { status: 201 }
-    )
   } catch (error) {
     return NextResponse.json(
       { error: 'Internal server error' },

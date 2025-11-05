@@ -1,10 +1,10 @@
 /**
  * Foundry Configuration Service
- * Comprehensive service for managing Foundry project configurations
+ * Utility service for Foundry configuration validation and presets
+ * Note: Database operations are handled by the backend API
  */
 
 import { getCompilationClient } from './compilationClient'
-import { prisma } from './prisma'
 
 export interface FoundryConfig {
   // Compiler settings
@@ -58,53 +58,30 @@ export class FoundryConfigService {
   private client = getCompilationClient()
 
   /**
-   * Get course Foundry configuration
+   * Get course Foundry configuration from backend
+   * Note: This should proxy to backend API instead
    */
   async getCourseConfig(courseId: string): Promise<CourseFoundryConfig | null> {
-    try {
-      const courseProject = await prisma.courseProject.findFirst({
-        where: { courseId }
-      })
-
-      if (!courseProject) {
-        return null
-      }
-
-      return {
-        courseId,
-        foundryConfig: courseProject.foundryConfig as FoundryConfig,
-        libraries: courseProject.dependencies as LibraryConfig[],
-        remappings: courseProject.remappings as Record<string, string>
-      }
-    } catch (error) {
-      return null
-    }
+    // This method is deprecated - use backend API directly
+    // Keeping for backward compatibility but it won't query database
+    return null
   }
 
   /**
    * Update course Foundry configuration
+   * Note: This should proxy to backend API instead
    */
   async updateCourseConfig(courseId: string, config: Partial<CourseFoundryConfig>): Promise<boolean> {
+    // This method is deprecated - use backend API directly
+    // Keeping for backward compatibility but it won't update database
     try {
-      // Update configuration on Foundry service
-      const result = await this.client.updateProjectConfig(courseId, config)
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Configuration update failed')
-      }
-
-      // Update configuration in database
-      await prisma.courseProject.updateMany({
-        where: { courseId },
-        data: {
-          foundryConfig: config.foundryConfig,
-          dependencies: config.libraries,
-          remappings: config.remappings,
-          updatedAt: new Date()
-        }
+      // Update configuration on Foundry service only
+      const result = await this.client.updateProjectConfig(courseId, {
+        foundryConfig: config.foundryConfig,
+        remappings: config.remappings
       })
-
-      return true
+      
+      return result.success
     } catch (error) {
       return false
     }
@@ -427,41 +404,21 @@ export class FoundryConfigService {
    * Remove library
    */
   async removeLibrary(courseId: string, libraryName: string): Promise<boolean> {
-    try {
-      // Get current configuration
-      const config = await this.getCourseConfig(courseId)
-      if (!config) {
-        return false
-      }
-
-      // Remove library from configuration
-      const updatedLibraries = config.libraries.filter(lib => lib.name !== libraryName)
-      
-      // Update configuration
-      return await this.updateCourseConfig(courseId, {
-        libraries: updatedLibraries
-      })
-    } catch (error) {
-      return false
-    }
+    // This method is deprecated - use backend API directly
+    // Keeping for backward compatibility but it won't update database
+    return false
   }
 
   /**
    * Get library status
    */
   async getLibraryStatus(courseId: string): Promise<{ installed: LibraryConfig[]; available: LibraryConfig[] }> {
-    try {
-      const config = await this.getCourseConfig(courseId)
-      const available = this.getAvailableLibraries()
-      
-      return {
-        installed: config?.libraries || [],
-        available: available.filter(lib => 
-          !config?.libraries.some(installed => installed.name === lib.name)
-        )
-      }
-    } catch (error) {
-      return { installed: [], available: this.getAvailableLibraries() }
+    // This method is deprecated - use backend API directly
+    // Keeping for backward compatibility but it won't query database
+    const available = this.getAvailableLibraries()
+    return {
+      installed: [],
+      available
     }
   }
 }

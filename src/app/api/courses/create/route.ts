@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCompilationClient } from '@/lib/compilationClient'
-import { courseCreationService } from '@/lib/course-creation-service'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { withAuth, createErrorResponse, createSuccessResponse } from '@/lib/auth-utils'
 import { z } from 'zod'
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
 // Enhanced validation schema for course creation with comprehensive Foundry integration
 const createCourseSchema = z.object({
@@ -74,55 +75,30 @@ export async function POST(request: NextRequest) {
       const body = await request.json()
       const validatedData = createCourseSchema.parse(body)
 
-      // Use course creation service for comprehensive course creation
-      const creationResult = await courseCreationService.createCourse({
-        title: validatedData.title,
-        description: validatedData.description,
-        language: validatedData.language,
-        goals: validatedData.goals,
-        level: validatedData.level,
-        access: validatedData.access,
-        status: validatedData.status,
-        thumbnail: validatedData.thumbnail,
-        creatorId: session.user.id,
-        foundryConfig: validatedData.foundryConfig,
-        dependencies: validatedData.dependencies,
-        templates: validatedData.templates,
-        remappings: validatedData.remappings,
-        modules: validatedData.modules
-      })
-
-      if (!creationResult.success) {
-        return createErrorResponse(
-          'Course creation failed',
-          500,
-          {
-            errors: creationResult.errors,
-            warnings: creationResult.warnings
-          }
-        )
+      // Check if user has permission to create courses
+      if (session.user.role !== 'ADMIN') {
+        return createErrorResponse('Only admins can create courses', 403)
       }
 
-      // Get available templates for response
-      const availableTemplates = await courseCreationService.getCourseTemplates()
-
-      return createSuccessResponse({
-        message: 'Course created successfully with enhanced Foundry integration',
-        course: creationResult.course,
-        foundryProject: creationResult.foundryProject,
-        availableTemplates,
-        foundryIntegration: validatedData.language.toLowerCase() === 'solidity',
-        configuration: {
-          foundryConfig: validatedData.foundryConfig,
-          dependencies: validatedData.dependencies,
-          templates: validatedData.templates,
-          remappings: validatedData.remappings
+      // Forward request to backend
+      const backendResponse = await fetch(`${BACKEND_URL}/api/courses/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.backendAccessToken || ''}`,
         },
-        warnings: creationResult.warnings
+        body: JSON.stringify(validatedData),
       })
 
+      const data = await backendResponse.json()
+
+      if (!backendResponse.ok) {
+        return NextResponse.json(data, { status: backendResponse.status })
+      }
+
+      return NextResponse.json(data)
+
     } catch (error) {
-      
       if (error instanceof z.ZodError) {
         return createErrorResponse('Validation error', 400, {
           details: error.issues.map(issue => ({
@@ -144,16 +120,22 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   return withAuth(request, async (session) => {
     try {
-      // Get course creation defaults and available templates
-      const defaults = courseCreationService.getCourseCreationDefaults()
-      const availableTemplates = await courseCreationService.getCourseTemplates()
-      const availableDependencies = courseCreationService.getAvailableDependencies()
-
-      return createSuccessResponse({
-        availableTemplates,
-        availableDependencies,
-        ...defaults
+      // Forward request to backend
+      const backendResponse = await fetch(`${BACKEND_URL}/api/courses/create`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.backendAccessToken || ''}`,
+        },
       })
+
+      const data = await backendResponse.json()
+
+      if (!backendResponse.ok) {
+        return NextResponse.json(data, { status: backendResponse.status })
+      }
+
+      return NextResponse.json(data)
 
     } catch (error) {
       return createErrorResponse('Failed to get course creation information', 500)
