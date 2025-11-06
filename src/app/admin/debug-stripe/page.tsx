@@ -1,11 +1,11 @@
 'use client'
 
-import { useAuth } from '@/contexts/AuthContext'
+import { useAdminAuth } from '@/contexts/AdminAuthContext'
 import AdminRoute from '@/components/AdminRoute'
 import { useState } from 'react'
 
 export default function DebugStripePage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useAdminAuth()
   const [debugInfo, setDebugInfo] = useState<any>(null)
   const [checking, setChecking] = useState(false)
 
@@ -135,7 +135,7 @@ export default function DebugStripePage() {
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mt-6">
           <h2 className="text-xl font-semibold mb-4 text-yellow-800">Quick Fixes</h2>
           <div className="space-y-2 text-yellow-700">
-            <p>1. <strong>Not logged in?</strong> Go to <a href="/auth/signin" className="underline">Sign In</a></p>
+            <p>1. <strong>Not logged in?</strong> Go to <a href="/admin/login" className="underline">Admin Login</a></p>
             <p>2. <strong>Missing Stripe keys?</strong> Add them to your .env file</p>
             <p>3. <strong>Invalid Price IDs?</strong> Create products in Stripe Dashboard (Test mode)</p>
             <p>4. <strong>Server not running?</strong> Run <code className="bg-yellow-100 px-1 rounded">npm run dev</code></p>
@@ -146,3 +146,5 @@ export default function DebugStripePage() {
     </AdminRoute>
   )
 }
+
+
