@@ -16,7 +16,7 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false)
   
   const router = useRouter()
-  const { login, logout, isAuthenticated, isAdmin, loading: authLoading } = useAuth()
+  const { login, logout, isAuthenticated, isAdmin, user, loading: authLoading } = useAuth()
 
   // Redirect if already authenticated as admin
   useEffect(() => {
@@ -34,14 +34,16 @@ export default function AdminLogin() {
       const result = await login({ email, password })
 
       if (result.success) {
-        // Check if user is admin
-        if (result.user?.role === 'ADMIN') {
-          router.push('/admin/dashboard')
-        } else {
-          setError('Admin access required. Please contact an administrator.')
-          // Logout the user since they're not admin
-          await logout()
-        }
+        // Wait for auth state to update, then check admin status
+        // The useEffect will handle redirect if user is admin
+        // If not admin, we'll check and logout in a moment
+        setTimeout(() => {
+          // Check again after state update
+          if (!isAdmin) {
+            setError('Admin access required. Please contact an administrator.')
+            logout()
+          }
+        }, 200)
       } else {
         setError(result.error || 'Invalid email or password')
       }

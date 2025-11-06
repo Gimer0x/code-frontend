@@ -68,8 +68,7 @@ export default function LessonViewer({ lesson: initialLesson, courseId }: Lesson
       const walker = document.createTreeWalker(
         document.body,
         NodeFilter.SHOW_TEXT,
-        null,
-        false
+        null
       )
       
       let node
@@ -178,7 +177,7 @@ export default function LessonViewer({ lesson: initialLesson, courseId }: Lesson
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Lesson Not Found</h1>
           <p className="text-gray-600 mb-4">{error || 'The requested lesson could not be found.'}</p>
           <button
-            onClick={() => router.push(`/courses/${courseId}?expandedModule=${lesson.module.id}`)}
+            onClick={() => router.push(`/courses/${courseId}${lesson?.module?.id ? `?expandedModule=${lesson.module.id}` : ''}`)}
             className="bg-yellow-500 text-black px-6 py-2 rounded-lg font-semibold hover:bg-yellow-600 transition-colors"
           >
             Back to Course
@@ -433,8 +432,8 @@ export default function LessonViewer({ lesson: initialLesson, courseId }: Lesson
                      const codeString = children.props.children
                      const lines = codeString.split('\n')
                      
-                     // Enhanced Solidity syntax highlighting
-                     const highlightLine = (line) => {
+                    // Enhanced Solidity syntax highlighting
+                    const highlightLine = (line: string) => {
                        if (line.includes('//')) {
                          const commentIndex = line.indexOf('//')
                          const beforeComment = line.substring(0, commentIndex)
@@ -452,9 +451,9 @@ export default function LessonViewer({ lesson: initialLesson, courseId }: Lesson
                        return highlightText(line)
                      }
                      
-                     // Use the same highlighting approach as the admin preview
-                     const highlightText = (text) => {
-                       let highlighted = text;
+                      // Use the same highlighting approach as the admin preview
+                      const highlightText = (text: string) => {
+                       const highlighted = text;
                        
                        // Process line by line to avoid conflicts
                        const lines = highlighted.split('\n');
@@ -507,7 +506,7 @@ export default function LessonViewer({ lesson: initialLesson, courseId }: Lesson
                      return (
                        <div className="relative group bg-slate-900 rounded-lg overflow-hidden mb-4 shadow-lg">
                          <pre className="text-gray-100 p-4 font-mono text-sm leading-relaxed m-0">
-                           {lines.map((line, index) => {
+                           {lines.map((line: string, index: number) => {
                              // Don't add h-4 for the last line if it's empty (trailing empty line)
                              const isLastLine = index === lines.length - 1;
                              const isTrailingEmptyLine = isLastLine && line.trim() === '';

@@ -26,8 +26,9 @@ export async function GET(request: NextRequest) {
 
     // Prefer backend token from NextAuth session; fall back to incoming Authorization
     const session = await getServerSession(authOptions)
-    const authHeader = session?.backendAccessToken
-      ? `Bearer ${session.backendAccessToken}`
+    const sessionAny = session as any
+    const authHeader = sessionAny?.backendAccessToken
+      ? `Bearer ${sessionAny.backendAccessToken}`
       : request.headers.get('authorization') || undefined
 
     const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/student/progress${params}`, {
@@ -52,8 +53,9 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const authHeader = session?.backendAccessToken
-      ? `Bearer ${session.backendAccessToken}`
+    const sessionAny = session as any
+    const authHeader = sessionAny?.backendAccessToken
+      ? `Bearer ${sessionAny.backendAccessToken}`
       : request.headers.get('authorization') || undefined
 
     const body = await request.text()

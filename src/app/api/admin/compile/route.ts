@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
   }
   
   // Fall back to withAuth (session-based authentication)
-  return withAuth(async (request: NextRequest, context) => {
+  const withAuthHandler = withAuth(async (request: NextRequest, context) => {
     try {
       // Get admin token from session
       const session: any = context.session
@@ -81,7 +81,9 @@ export async function POST(request: NextRequest) {
         500
       )
     }
-  })(request, { requireAuth: true, requireAdmin: true })
+  }, { requireAuth: true, requireAdmin: true })
+  
+  return withAuthHandler(request)
 }
 
 async function handleCompileRequest(request: NextRequest, adminToken: string) {
@@ -164,7 +166,7 @@ async function handleCompileRequest(request: NextRequest, adminToken: string) {
         return NextResponse.json({
           success: false,
           error: 'Invalid request body',
-          errors: error.errors.map(e => `${e.path.join('.')}: ${e.message}`),
+          errors: error.issues.map(e => `${e.path.join('.')}: ${e.message}`),
           warnings: [],
           output: '',
           contractName: 'Unknown',

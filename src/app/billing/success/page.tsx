@@ -1,13 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getTokens } from '@/lib/apiClient'
 
 export default function BillingSuccessPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [subscription, setSubscription] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)

@@ -5,25 +5,25 @@ import AdminRoute from '@/components/AdminRoute'
 import { useState } from 'react'
 
 export default function DebugStripePage() {
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [debugInfo, setDebugInfo] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(false)
 
   const checkStripeConfig = async () => {
-    setLoading(true)
+    setChecking(true)
     try {
       const response = await fetch('/api/debug/stripe-config')
       const data = await response.json()
       setDebugInfo(data)
-    } catch (error) {
+    } catch (error: any) {
       setDebugInfo({ error: error.message })
     } finally {
-      setLoading(false)
+      setChecking(false)
     }
   }
 
   const testCheckoutSession = async () => {
-    setLoading(true)
+    setChecking(true)
     try {
       const response = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
@@ -38,15 +38,15 @@ export default function DebugStripePage() {
       
       const data = await response.json()
       setDebugInfo({ checkoutTest: data })
-    } catch (error) {
+    } catch (error: any) {
       setDebugInfo({ checkoutError: error.message })
     } finally {
-      setLoading(false)
+      setChecking(false)
     }
   }
 
   const verifyPriceId = async (priceId: string) => {
-    setLoading(true)
+    setChecking(true)
     try {
       const response = await fetch('/api/debug/verify-price', {
         method: 'POST',
@@ -58,10 +58,10 @@ export default function DebugStripePage() {
       
       const data = await response.json()
       setDebugInfo({ priceVerification: data })
-    } catch (error) {
+    } catch (error: any) {
       setDebugInfo({ priceError: error.message })
     } finally {
-      setLoading(false)
+      setChecking(false)
     }
   }
 
@@ -77,7 +77,7 @@ export default function DebugStripePage() {
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Session Status</h2>
           <div className="space-y-2">
-            <p><strong>Status:</strong> {status}</p>
+            <p><strong>Status:</strong> {authLoading ? 'Loading...' : (user ? 'Logged in' : 'Not logged in')}</p>
             <p><strong>User:</strong> {user?.email || 'Not logged in'}</p>
             <p><strong>Name:</strong> {user?.name || 'N/A'}</p>
           </div>
@@ -89,34 +89,34 @@ export default function DebugStripePage() {
           <div className="space-x-4 mb-4">
             <button
               onClick={checkStripeConfig}
-              disabled={loading}
+              disabled={checking}
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
             >
-              {loading ? 'Checking...' : 'Check Stripe Config'}
+              {checking ? 'Checking...' : 'Check Stripe Config'}
             </button>
             <button
               onClick={testCheckoutSession}
-              disabled={loading || !user}
+              disabled={checking || !user}
               className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
             >
-              {loading ? 'Testing...' : 'Test Checkout Session'}
+              {checking ? 'Testing...' : 'Test Checkout Session'}
             </button>
           </div>
           
           <div className="space-x-4">
             <button
               onClick={() => verifyPriceId('price_1S6ffrCHMIPAdgAoEfxfri2x')}
-              disabled={loading}
+              disabled={checking}
               className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-50"
             >
-              {loading ? 'Verifying...' : 'Verify Monthly Price ID'}
+              {checking ? 'Verifying...' : 'Verify Monthly Price ID'}
             </button>
             <button
               onClick={() => verifyPriceId(process.env.NEXT_PUBLIC_YEARLY_PRICE_ID || 'price_yearly_test')}
-              disabled={loading}
+              disabled={checking}
               className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
             >
-              {loading ? 'Verifying...' : 'Verify Yearly Price ID'}
+              {checking ? 'Verifying...' : 'Verify Yearly Price ID'}
             </button>
           </div>
         </div>

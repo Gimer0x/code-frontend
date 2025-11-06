@@ -12,7 +12,8 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session?.backendAccessToken) {
+    const sessionAny = session as any
+    if (!sessionAny?.backendAccessToken) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.backendAccessToken}`,
+        'Authorization': `Bearer ${sessionAny.backendAccessToken}`,
       },
       body: JSON.stringify(validationResult.data),
     })

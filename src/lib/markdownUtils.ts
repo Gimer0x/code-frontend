@@ -2,7 +2,7 @@
 // This file contains the same logic as the preview component in the tab editor
 
 export function highlightSolidityCode(code: string): string {
-  let highlighted = code;
+  const highlighted = code;
   
   // Process line by line to avoid conflicts
   const lines = highlighted.split('\n');

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import AdminRoute from '@/components/AdminRoute'
 import TemplateManager from '@/components/TemplateManager'
@@ -15,6 +16,11 @@ interface Template {
   category: string
   difficulty: string
   language: string
+  files?: Array<{
+    path: string
+    content: string
+    description?: string
+  }>
   metadata: {
     author?: string
     version: string
@@ -69,7 +75,7 @@ export default function CourseTemplates() {
     alert(`Template "${template.name}" created successfully!`)
   }
 
-  if (status === 'loading') {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -163,11 +169,13 @@ export default function CourseTemplates() {
       {/* Template Preview Modal */}
       {showPreview && selectedTemplate && (
         <TemplatePreview
-          template={selectedTemplate}
+          template={selectedTemplate as any}
           onClose={() => setShowPreview(false)}
           onApply={(templateId) => {
             setShowPreview(false)
-            handleTemplateApply(selectedTemplate)
+            if (selectedTemplate) {
+              handleTemplateApply(selectedTemplate)
+            }
           }}
         />
       )}

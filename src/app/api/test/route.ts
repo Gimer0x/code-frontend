@@ -67,14 +67,6 @@ export async function POST(request: NextRequest) {
         testName,
         options: {}
       }
-        userId: foundryPayload.userId,
-        courseId: foundryPayload.courseId,
-        lessonId: foundryPayload.lessonId,
-        contractName: foundryPayload.contractName,
-        testName: foundryPayload.testName,
-        codeLength: foundryPayload.code.length,
-        testCodeLength: foundryPayload.testCode.length
-      })
       
       const foundryResponse = await fetch(`${foundryServiceUrl}/api/test`, {
         method: 'POST',
@@ -83,7 +75,6 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify(foundryPayload)
       })
-      
 
       if (!foundryResponse.ok) {
         const errorText = await foundryResponse.text()
@@ -91,12 +82,6 @@ export async function POST(request: NextRequest) {
       }
 
       const result = await foundryResponse.json()
-        success: result.success,
-        message: result.message,
-        hasResult: !!result.result,
-        hasOutput: !!result.result?.output,
-        outputLength: result.result?.output?.length || 0
-      })
       
       if (!result.success) {
         return NextResponse.json({

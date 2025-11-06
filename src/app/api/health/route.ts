@@ -11,7 +11,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 export async function GET(request: NextRequest) {
   try {
     const startTime = Date.now()
-    const health = {
+    const health: any = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       services: {

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
-})
+function getStripe() {
+  const secretKey = process.env.STRIPE_SECRET_KEY
+  if (!secretKey) {
+    throw new Error('STRIPE_SECRET_KEY is not set')
+  }
+  return new Stripe(secretKey, {
+    apiVersion: '2024-12-18.acacia' as any,
+  })
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,6 +22,7 @@ export async function GET(request: NextRequest) {
 
     try {
       // Try to retrieve the price
+      const stripe = getStripe()
       const price = await stripe.prices.retrieve(priceId)
       
       return NextResponse.json({
@@ -39,7 +46,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

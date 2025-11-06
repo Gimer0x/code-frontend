@@ -45,6 +45,10 @@ export async function POST(request: NextRequest) {
       }, { status: 401 })
     }
 
+    // Get token from Authorization header
+    const authHeader = request.headers.get('Authorization')
+    const token = authHeader?.replace('Bearer ', '') || ''
+
     // Parse and validate request body
     const body = await request.json()
     const validatedData = createCourseWithFoundrySchema.parse(body)
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authResult.token || ''}`,
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify(validatedData),
     })

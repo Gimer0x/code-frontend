@@ -10,6 +10,7 @@ const mockTemplates = [
     category: 'basic',
     difficulty: 'beginner',
     language: 'solidity',
+    files: [],
     metadata: {
       author: 'DappDojo Team',
       version: '1.0.0',
@@ -35,6 +36,7 @@ const mockTemplates = [
     category: 'advanced',
     difficulty: 'advanced',
     language: 'solidity',
+    files: [],
     metadata: {
       author: 'DappDojo Team',
       version: '1.0.0',
@@ -61,6 +63,7 @@ const mockTemplates = [
     category: 'defi',
     difficulty: 'intermediate',
     language: 'solidity',
+    files: [],
     metadata: {
       author: 'DappDojo Team',
       version: '1.0.0',
@@ -88,6 +91,7 @@ const mockTemplates = [
     category: 'nft',
     difficulty: 'intermediate',
     language: 'solidity',
+    files: [],
     metadata: {
       author: 'DappDojo Team',
       version: '1.0.0',
@@ -126,11 +130,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const POST = withAuth(async (request: NextRequest, context) => {
     try {
       const body = await request.json()
-      const { name, description, category, difficulty, language, metadata, dependencies, foundryConfig } = body
+      const { name, description, category, difficulty, language, metadata, dependencies, foundryConfig, files } = body
 
       // In a real app, you would save the template to a database
       const newTemplate = {
@@ -140,8 +143,9 @@ export async function POST(request: NextRequest) {
         category,
         difficulty,
         language,
+        files: files || [],
         metadata: {
-          author: session.user.name || 'Unknown',
+          author: context.user.name || 'Unknown',
           version: '1.0.0',
           ...metadata
         },
@@ -165,5 +169,4 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       return createErrorResponse('Failed to create template', 500)
     }
-  }, ['ADMIN']) // Only admins can create templates
-}
+  }, { requireAdmin: true }) // Only admins can create templates

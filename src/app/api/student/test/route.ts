@@ -12,7 +12,8 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.backendAccessToken) {
+    const sessionAny = session as any
+    if (!sessionAny?.backendAccessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     const backendRes = await fetch(backendUrl, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${session.backendAccessToken}`,
+        'Authorization': `Bearer ${sessionAny.backendAccessToken}`,
         'Content-Type': 'application/json'
       }
     })
@@ -43,7 +44,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.backendAccessToken) {
+    const sessionAny = session as any
+    if (!sessionAny?.backendAccessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
     const backendRes = await fetch(backendUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${session.backendAccessToken}`,
+        'Authorization': `Bearer ${sessionAny.backendAccessToken}`,
         'Content-Type': 'application/json'
       },
       body

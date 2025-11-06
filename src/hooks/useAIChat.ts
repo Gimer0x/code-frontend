@@ -14,7 +14,7 @@ export function useAIChat() {
 
   const send = useCallback(async (userText: string) => {
     setLoading(true)
-    const next = [...messages, { role: 'user', content: userText }]
+    const next: Msg[] = [...messages, { role: 'user' as const, content: userText }]
     setMessages(next)
     try {
       // Use frontend proxy to normalize payload and forward auth
@@ -37,7 +37,7 @@ export function useAIChat() {
 
   const stream = useCallback(async (userText: string, onToken?: (t: string) => void) => {
     setLoading(true)
-    const next = [...messages, { role: 'user', content: userText }]
+    const next: Msg[] = [...messages, { role: 'user' as const, content: userText }]
     setMessages(next)
     setReply('')
     const ctrl = new AbortController()

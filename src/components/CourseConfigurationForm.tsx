@@ -77,7 +77,7 @@ export default function CourseConfigurationForm({
         const templateDeps = template.dependencies || []
         const mergedDeps = [...existingDeps]
         
-        templateDeps.forEach(templateDep => {
+        templateDeps.forEach((templateDep: { name: string; version: string; source: string }) => {
           const exists = mergedDeps.some(dep => dep.name === templateDep.name)
           if (!exists) {
             mergedDeps.push(templateDep)
@@ -210,7 +210,7 @@ export default function CourseConfigurationForm({
             </h3>
             <TemplateSelector
               onTemplateSelect={handleTemplateSelect}
-              selectedTemplate={configData.templates[0] ? { id: configData.templates[0].name } : null}
+              selectedTemplate={configData.templates[0] ? { id: configData.templates[0].name } as any : null}
               courseId={courseId}
             />
           </div>

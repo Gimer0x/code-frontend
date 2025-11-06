@@ -25,8 +25,7 @@ const removeLibrarySchema = z.object({
 /**
  * Get course libraries
  */
-export async function GET(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const GET = withAuth(async (request: NextRequest, context) => {
     try {
       const { searchParams } = new URL(request.url)
       const courseId = searchParams.get('courseId')
@@ -51,22 +50,26 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       return createErrorResponse('Failed to get course libraries', 500)
     }
-  })
-}
+})
 
 /**
  * Install library
  */
-export async function POST(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const POST = withAuth(async (request: NextRequest, context) => {
     try {
       const body = await request.json()
       const validatedData = installLibrarySchema.parse(body)
 
       // Install library
+      // Ensure required fields are present
+      const libraryToInstall = {
+        ...validatedData.library,
+        version: validatedData.library.version || 'latest',
+        source: validatedData.library.source || 'github'
+      }
       const success = await foundryConfigService.installLibrary(
         validatedData.courseId,
-        validatedData.library
+        libraryToInstall as any
       )
 
       if (!success) {
@@ -101,14 +104,12 @@ export async function POST(request: NextRequest) {
         500
       )
     }
-  })
-}
+})
 
 /**
  * Remove library
  */
-export async function DELETE(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const DELETE = withAuth(async (request: NextRequest, context) => {
     try {
       const body = await request.json()
       const validatedData = removeLibrarySchema.parse(body)
@@ -151,5 +152,4 @@ export async function DELETE(request: NextRequest) {
         500
       )
     }
-  })
-}
+})

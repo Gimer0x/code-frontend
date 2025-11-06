@@ -283,7 +283,7 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
     // Transform backend response to match frontend expected format
     // Backend may return tests in various locations: result.tests, result.testResults, or directly in response
     const result = backendResult.result || backendResult
-    let tests = result.tests || result.testResults || backendResult.tests || backendResult.testResults || []
+    const tests = result.tests || result.testResults || backendResult.tests || backendResult.testResults || []
     
     // If tests array is empty, try to parse from output (raw Foundry output might need parsing)
     if (tests.length === 0 && (result.output || backendResult.output)) {
@@ -361,7 +361,7 @@ async function handleTestRequest(request: NextRequest, adminToken: string) {
       return NextResponse.json({
         success: false,
         error: 'Invalid request body',
-        errors: error.errors.map(e => `${e.path.join('.')}: ${e.message}`),
+        errors: error.issues.map(e => `${e.path.join('.')}: ${e.message}`),
         results: [],
         testCount: 0,
         passedCount: 0,

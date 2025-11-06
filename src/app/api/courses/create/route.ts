@@ -43,11 +43,11 @@ const createCourseSchema = z.object({
     description: z.string().optional(),
     templatePath: z.string().optional(),
     isDefault: z.boolean().optional(),
-    options: z.record(z.any()).optional()
+    options: z.record(z.string(), z.any()).optional()
   })).optional().default([]),
   
   // Remappings configuration
-  remappings: z.record(z.string()).optional().default({}),
+  remappings: z.record(z.string(), z.string()).optional().default({}),
   
   // Course structure
   modules: z.array(z.object({
@@ -69,14 +69,13 @@ const createCourseSchema = z.object({
   })).optional().default([])
 })
 
-export async function POST(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const POST = withAuth(async (request: NextRequest, context) => {
     try {
       const body = await request.json()
       const validatedData = createCourseSchema.parse(body)
 
       // Check if user has permission to create courses
-      if (session.user.role !== 'ADMIN') {
+      if (context.user.role !== 'ADMIN') {
         return createErrorResponse('Only admins can create courses', 403)
       }
 
@@ -85,7 +84,7 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.backendAccessToken || ''}`,
+          'Authorization': `Bearer ${(context.session as any)?.backendAccessToken || ''}`,
         },
         body: JSON.stringify(validatedData),
       })
@@ -114,18 +113,16 @@ export async function POST(request: NextRequest) {
         500
       )
     }
-  }, ['ADMIN']) // Only admins can create courses
-}
+  }, { requireAdmin: true }) // Only admins can create courses
 
-export async function GET(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const GET = withAuth(async (request: NextRequest, context) => {
     try {
       // Forward request to backend
       const backendResponse = await fetch(`${BACKEND_URL}/api/courses/create`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.backendAccessToken || ''}`,
+          'Authorization': `Bearer ${(context.session as any)?.backendAccessToken || ''}`,
         },
       })
 
@@ -141,4 +138,3 @@ export async function GET(request: NextRequest) {
       return createErrorResponse('Failed to get course creation information', 500)
     }
   })
-}

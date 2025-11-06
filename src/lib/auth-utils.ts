@@ -85,8 +85,8 @@ export async function authenticateRequest(
       user: {
         id: session.user.id,
         email: session.user.email || '',
-        role: session.user.role || 'STUDENT',
-        name: session.user.name
+        role: (session.user.role as 'STUDENT' | 'ADMIN') || 'STUDENT',
+        name: session.user.name || undefined
       },
       session
     }

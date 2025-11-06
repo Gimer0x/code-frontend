@@ -12,6 +12,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+    const sessionAny = session as any
     
     // Basic status for unauthenticated users
     const basicStatus = {
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          ...(session.backendAccessToken ? { 'Authorization': `Bearer ${session.backendAccessToken}` } : {}),
+          ...(sessionAny.backendAccessToken ? { 'Authorization': `Bearer ${sessionAny.backendAccessToken}` } : {}),
         },
       })
 
@@ -122,12 +123,13 @@ async function checkFlyioStatus() {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.backendAccessToken) {
+    const sessionAny = session as any
+    if (!sessionAny?.backendAccessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Only admins can access metrics
-    if (session.user.role !== 'ADMIN') {
+    if ((sessionAny.user as any)?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -137,7 +139,7 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.backendAccessToken}`,
+          'Authorization': `Bearer ${sessionAny.backendAccessToken}`,
         },
       })
 

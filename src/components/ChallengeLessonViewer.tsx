@@ -12,7 +12,7 @@ interface Lesson {
   id: string
   title: string
   type: string
-  contentMarkdown: string
+  contentMarkdown: string | null
   initialCode?: string
   solutionCode?: string
   tests?: string
@@ -27,18 +27,18 @@ interface Lesson {
   navigation: {
     currentIndex: number
     totalLessons: number
-    nextLesson?: {
+    nextLesson: {
       id: string
       title: string
-    }
-    previousLesson?: {
+    } | null
+    previousLesson: {
       id: string
       title: string
-    }
+    } | null
   }
-  progress?: {
+  progress: {
     completed: boolean
-  }
+  } | null
 }
 
 interface ChallengeLessonViewerProps {
@@ -1151,7 +1151,7 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                           
                           // Use the same highlighting approach as the admin preview
                           const highlightText = (text: string) => {
-                            let highlighted = text;
+                            const highlighted = text;
                             
                             // Process line by line to avoid conflicts
                             const lines = highlighted.split('\n');

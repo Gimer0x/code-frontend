@@ -129,10 +129,11 @@ export async function checkServiceHealth() {
   
   try {
     const health = await client.healthCheck()
+    const { status: _, ...healthWithoutStatus } = health as any
     return {
       status: 'healthy',
       service: 'foundry',
-      ...health
+      ...healthWithoutStatus
     }
   } catch (error) {
     return {

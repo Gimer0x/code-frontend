@@ -111,6 +111,7 @@ export class CompilationClient {
       timeout: 30000, // 30 seconds
       retryAttempts: 3,
       retryDelay: 1000, // 1 second
+      apiKey: '',
       ...config
     }
 

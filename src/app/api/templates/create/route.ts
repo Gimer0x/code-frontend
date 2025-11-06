@@ -27,7 +27,7 @@ const createTemplateSchema = z.object({
     viaIR: z.boolean().optional().default(false),
     evmVersion: z.string().optional().default('london')
   }),
-  remappings: z.record(z.string()).optional().default({}),
+  remappings: z.record(z.string(), z.string()).optional().default({}),
   metadata: z.object({
     author: z.string().optional(),
     version: z.string().min(1, 'Version is required'),
@@ -40,14 +40,13 @@ const createTemplateSchema = z.object({
 /**
  * Create a new template
  */
-export async function POST(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const POST = withAuth(async (request: NextRequest, context) => {
     try {
       const body = await request.json()
       const validatedData = createTemplateSchema.parse(body)
 
       // Check if user has permission to create templates
-      if (session.user.role !== 'ADMIN') {
+      if (context.user.role !== 'ADMIN') {
         return createErrorResponse('Only admins can create templates', 403)
       }
 
@@ -71,7 +70,7 @@ export async function POST(request: NextRequest) {
         remappings: validatedData.remappings,
         metadata: {
           ...validatedData.metadata,
-          author: validatedData.metadata.author || session.user.name || 'Unknown',
+          author: validatedData.metadata.author || context.user.name || 'Unknown',
           createdAt: new Date().toISOString()
         }
       }
@@ -116,5 +115,4 @@ export async function POST(request: NextRequest) {
         500
       )
     }
-  }, ['ADMIN']) // Only admins can create templates
-}
+  }, { requireAdmin: true }) // Only admins can create templates

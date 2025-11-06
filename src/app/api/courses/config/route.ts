@@ -20,10 +20,10 @@ const foundryConfigSchema = z.object({
   extraOutputFiles: z.array(z.string()).optional(),
   bytecodeHash: z.string().optional(),
   cborMetadata: z.boolean().optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.string(), z.any()).optional()
 })
 
-const remappingsSchema = z.record(z.string())
+const remappingsSchema = z.record(z.string(), z.string())
 
 const updateConfigSchema = z.object({
   courseId: z.string().min(1, 'Course ID is required'),
@@ -34,8 +34,7 @@ const updateConfigSchema = z.object({
 /**
  * Get course configuration
  */
-export async function GET(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const GET = withAuth(async (request: NextRequest, context) => {
     try {
       const { searchParams } = new URL(request.url)
       const courseId = searchParams.get('courseId')
@@ -50,7 +49,7 @@ export async function GET(request: NextRequest) {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.backendAccessToken || ''}`,
+            'Authorization': `Bearer ${(context.session as any)?.backendAccessToken || ''}`,
           },
         })
 
@@ -117,14 +116,12 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       return createErrorResponse('Failed to get course configuration', 500)
     }
-  })
-}
+})
 
 /**
  * Update course configuration
  */
-export async function PUT(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const PUT = withAuth(async (request: NextRequest, context) => {
     try {
       const body = await request.json()
       const validatedData = updateConfigSchema.parse(body)
@@ -134,7 +131,7 @@ export async function PUT(request: NextRequest) {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.backendAccessToken || ''}`,
+            'Authorization': `Bearer ${(context.session as any)?.backendAccessToken || ''}`,
         },
         body: JSON.stringify(validatedData),
       })
@@ -163,14 +160,12 @@ export async function PUT(request: NextRequest) {
         500
       )
     }
-  })
-}
+})
 
 /**
  * Reset course configuration to defaults
  */
-export async function DELETE(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const DELETE = withAuth(async (request: NextRequest, context) => {
     try {
       const { searchParams } = new URL(request.url)
       const courseId = searchParams.get('courseId')
@@ -184,7 +179,7 @@ export async function DELETE(request: NextRequest) {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.backendAccessToken || ''}`,
+          'Authorization': `Bearer ${(context.session as any)?.backendAccessToken || ''}`,
         },
       })
 
@@ -199,5 +194,4 @@ export async function DELETE(request: NextRequest) {
     } catch (error) {
       return createErrorResponse('Failed to reset course configuration', 500)
     }
-  })
-}
+})

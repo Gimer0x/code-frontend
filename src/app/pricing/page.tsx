@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -58,7 +58,7 @@ const pricingPlans = [
   }
 ]
 
-export default function PricingPage() {
+function PricingPageContent() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -68,7 +68,10 @@ export default function PricingPage() {
   // Check if user came back from canceled payment
   const canceled = searchParams?.get('canceled') === 'true'
 
-  const handlePlanSelect = async (plan: string) => {
+  // Check if user returned from signup with a plan
+  const planFromUrl = searchParams?.get('plan')
+
+  const handlePlanSelect = useCallback(async (plan: string) => {
     if (authLoading) return
 
     setError(null)
@@ -160,18 +163,7 @@ export default function PricingPage() {
     } finally {
       setLoading(null)
     }
-  }
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
-
-  // Check if user returned from signup with a plan
-  const planFromUrl = searchParams?.get('plan')
+  }, [authLoading, user, router])
 
   // Auto-select plan after signup if user is now authenticated and plan is in URL
   useEffect(() => {
@@ -181,7 +173,15 @@ export default function PricingPage() {
         handlePlanSelect(planFromUrl)
       }, 500)
     }
-  }, [user, authLoading, planFromUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, authLoading, planFromUrl, handlePlanSelect])
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -360,5 +360,20 @@ export default function PricingPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    }>
+      <PricingPageContent />
+    </Suspense>
   )
 }

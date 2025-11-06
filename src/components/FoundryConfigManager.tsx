@@ -27,6 +27,7 @@ interface LibraryConfig {
   branch?: string
   commit?: string
   installPath?: string
+  description?: string
 }
 
 interface FoundryConfigManagerProps {

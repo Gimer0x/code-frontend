@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { foundryConfigService } from '@/lib/foundry-config-service'
+import { foundryConfigService, type FoundryConfig, type CourseFoundryConfig } from '@/lib/foundry-config-service'
 import { withAuth, createErrorResponse, createSuccessResponse } from '@/lib/auth-utils'
 import { z } from 'zod'
 
@@ -19,7 +19,7 @@ const foundryConfigSchema = z.object({
   verbosity: z.number().min(0).max(3).optional(),
   ffi: z.boolean().optional(),
   buildInfo: z.boolean().optional(),
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.string(), z.any()).optional()
 })
 
 const libraryConfigSchema = z.object({
@@ -36,14 +36,13 @@ const updateConfigSchema = z.object({
   courseId: z.string().min(1, 'Course ID is required'),
   foundryConfig: foundryConfigSchema.optional(),
   libraries: z.array(libraryConfigSchema).optional(),
-  remappings: z.record(z.string()).optional()
+  remappings: z.record(z.string(), z.string()).optional()
 })
 
 /**
  * Get course Foundry configuration
  */
-export async function GET(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const GET = withAuth(async (request: NextRequest, context) => {
     try {
       const { searchParams } = new URL(request.url)
       const courseId = searchParams.get('courseId')
@@ -78,21 +77,36 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       return createErrorResponse('Failed to get Foundry configuration', 500)
     }
-  })
-}
+})
 
 /**
  * Update course Foundry configuration
  */
-export async function PUT(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const PUT = withAuth(async (request: NextRequest, context) => {
     try {
       const body = await request.json()
       const validatedData = updateConfigSchema.parse(body)
 
       // Validate Foundry configuration if provided
       if (validatedData.foundryConfig) {
-        const validation = foundryConfigService.validateConfig(validatedData.foundryConfig)
+        // Ensure all required fields are present for validation
+        const configToValidate: FoundryConfig = {
+          solc: validatedData.foundryConfig.solc || '0.8.30',
+          optimizer: validatedData.foundryConfig.optimizer ?? true,
+          optimizerRuns: validatedData.foundryConfig.optimizerRuns ?? 200,
+          viaIR: validatedData.foundryConfig.viaIR,
+          evmVersion: validatedData.foundryConfig.evmVersion,
+          extraOutput: validatedData.foundryConfig.extraOutput,
+          extraOutputFiles: validatedData.foundryConfig.extraOutputFiles,
+          bytecodeHash: validatedData.foundryConfig.bytecodeHash,
+          cborMetadata: validatedData.foundryConfig.cborMetadata,
+          gasReports: validatedData.foundryConfig.gasReports,
+          gasReportsIgnore: validatedData.foundryConfig.gasReportsIgnore,
+          verbosity: validatedData.foundryConfig.verbosity,
+          ffi: validatedData.foundryConfig.ffi,
+          buildInfo: validatedData.foundryConfig.buildInfo
+        }
+        const validation = foundryConfigService.validateConfig(configToValidate)
         if (!validation.isValid) {
           return createErrorResponse('Invalid Foundry configuration', 400, {
             errors: validation.errors
@@ -101,13 +115,28 @@ export async function PUT(request: NextRequest) {
       }
 
       // Update configuration
+      // Ensure foundryConfig has all required fields if provided
+      const foundryConfig = validatedData.foundryConfig ? {
+        ...validatedData.foundryConfig,
+        optimizer: validatedData.foundryConfig.optimizer ?? true,
+        optimizerRuns: validatedData.foundryConfig.optimizerRuns ?? 200,
+        solc: validatedData.foundryConfig.solc || '0.8.30'
+      } : undefined
+      
+      const updateData: Partial<CourseFoundryConfig> = {}
+      if (foundryConfig) {
+        updateData.foundryConfig = foundryConfig as any
+      }
+      if (validatedData.libraries && validatedData.libraries.length > 0) {
+        updateData.libraries = validatedData.libraries as any
+      }
+      if (validatedData.remappings && Object.keys(validatedData.remappings).length > 0) {
+        updateData.remappings = validatedData.remappings as any
+      }
+      
       const success = await foundryConfigService.updateCourseConfig(
         validatedData.courseId,
-        {
-          foundryConfig: validatedData.foundryConfig,
-          libraries: validatedData.libraries,
-          remappings: validatedData.remappings
-        }
+        updateData
       )
 
       if (!success) {
@@ -141,14 +170,12 @@ export async function PUT(request: NextRequest) {
         500
       )
     }
-  })
-}
+})
 
 /**
  * Reset configuration to defaults
  */
-export async function DELETE(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const DELETE = withAuth(async (request: NextRequest, context) => {
     try {
       const { searchParams } = new URL(request.url)
       const courseId = searchParams.get('courseId')
@@ -184,5 +211,4 @@ export async function DELETE(request: NextRequest) {
     } catch (error) {
       return createErrorResponse('Failed to reset Foundry configuration', 500)
     }
-  })
-}
+})

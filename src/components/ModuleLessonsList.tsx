@@ -45,12 +45,13 @@ export default function ModuleLessonsList({
       try {
         // Get backend access token
         const { accessToken } = getTokens()
+        const sessionAny = session as any
         
-        if (!accessToken && session?.backendAccessToken) {
+        if (!accessToken && sessionAny?.backendAccessToken) {
           // Try to use session token if available
           const response = await fetch('/api/user-auth/subscription', {
             headers: {
-              'Authorization': `Bearer ${session.backendAccessToken}`,
+              'Authorization': `Bearer ${sessionAny.backendAccessToken}`,
             },
           })
           
@@ -90,7 +91,7 @@ export default function ModuleLessonsList({
     
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.backendAccessToken]) // Only depend on token, not entire session object
+  }, [(session as any)?.backendAccessToken]) // Only depend on token, not entire session object
 
   const toggle = (id: string) => {
     setExpanded(prev => {

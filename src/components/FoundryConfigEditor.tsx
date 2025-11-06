@@ -17,6 +17,9 @@ interface FoundryConfig {
   broadcast?: string
   ffi?: boolean
   fuzz_runs?: number
+  invariant_runs?: number
+  invariant_depth?: number
+  invariant_fail_on_revert?: boolean
   verbosity?: number
   build_info?: boolean
   extra_output?: string[]

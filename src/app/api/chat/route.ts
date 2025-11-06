@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(session?.backendAccessToken ? { Authorization: `Bearer ${session.backendAccessToken}` } : {}),
+        ...((session as any)?.backendAccessToken ? { Authorization: `Bearer ${(session as any).backendAccessToken}` } : {}),
       },
       body: JSON.stringify(outboundBody),
     })

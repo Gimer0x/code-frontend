@@ -10,8 +10,9 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+    const sessionAny = session as any
     
-    if (!session?.backendAccessToken) {
+    if (!sessionAny?.backendAccessToken) {
       // Return default response if not authenticated
       return NextResponse.json({
         success: true,
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.backendAccessToken}`,
+          'Authorization': `Bearer ${sessionAny.backendAccessToken}`,
         },
       })
 

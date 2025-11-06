@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { foundryConfigService } from '@/lib/foundry-config-service'
+import { foundryConfigService, type FoundryConfig } from '@/lib/foundry-config-service'
 import { withAuth, createErrorResponse, createSuccessResponse } from '@/lib/auth-utils'
 import { z } from 'zod'
 
@@ -23,56 +23,53 @@ const compilerConfigSchema = z.object({
 /**
  * Get compiler configuration
  */
-export async function GET(request: NextRequest) {
-  return withAuth(request, async (session) => {
-    try {
-      const { searchParams } = new URL(request.url)
-      const courseId = searchParams.get('courseId')
+export const GET = withAuth(async (request: NextRequest, context) => {
+  try {
+    const { searchParams } = new URL(request.url)
+    const courseId = searchParams.get('courseId')
 
-      if (!courseId) {
-        return createErrorResponse('Course ID is required', 400)
-      }
-
-      // Get course configuration
-      const config = await foundryConfigService.getCourseConfig(courseId)
-      
-      if (!config) {
-        return createErrorResponse('Course configuration not found', 404)
-      }
-
-      return createSuccessResponse({
-        courseId,
-        compilerConfig: {
-          solc: config.foundryConfig.solc,
-          viaIR: config.foundryConfig.viaIR,
-          evmVersion: config.foundryConfig.evmVersion,
-          optimizer: config.foundryConfig.optimizer,
-          optimizerRuns: config.foundryConfig.optimizerRuns,
-          extraOutput: config.foundryConfig.extraOutput,
-          extraOutputFiles: config.foundryConfig.extraOutputFiles,
-          bytecodeHash: config.foundryConfig.bytecodeHash,
-          cborMetadata: config.foundryConfig.cborMetadata,
-          verbosity: config.foundryConfig.verbosity,
-          ffi: config.foundryConfig.ffi,
-          buildInfo: config.foundryConfig.buildInfo
-        },
-        availableSolcVersions: foundryConfigService.getAvailableSolcVersions(),
-        availableEVMVersions: foundryConfigService.getAvailableEVMVersions(),
-        defaultConfig: foundryConfigService.getDefaultConfig(),
-        configurationPresets: foundryConfigService.getConfigurationPresets()
-      })
-
-    } catch (error) {
-      return createErrorResponse('Failed to get compiler configuration', 500)
+    if (!courseId) {
+      return createErrorResponse('Course ID is required', 400)
     }
-  })
-}
+
+    // Get course configuration
+    const config = await foundryConfigService.getCourseConfig(courseId)
+    
+    if (!config) {
+      return createErrorResponse('Course configuration not found', 404)
+    }
+
+    return createSuccessResponse({
+      courseId,
+      compilerConfig: {
+        solc: config.foundryConfig.solc,
+        viaIR: config.foundryConfig.viaIR,
+        evmVersion: config.foundryConfig.evmVersion,
+        optimizer: config.foundryConfig.optimizer,
+        optimizerRuns: config.foundryConfig.optimizerRuns,
+        extraOutput: config.foundryConfig.extraOutput,
+        extraOutputFiles: config.foundryConfig.extraOutputFiles,
+        bytecodeHash: config.foundryConfig.bytecodeHash,
+        cborMetadata: config.foundryConfig.cborMetadata,
+        verbosity: config.foundryConfig.verbosity,
+        ffi: config.foundryConfig.ffi,
+        buildInfo: config.foundryConfig.buildInfo
+      },
+      availableSolcVersions: foundryConfigService.getAvailableSolcVersions(),
+      availableEVMVersions: foundryConfigService.getAvailableEVMVersions(),
+      defaultConfig: foundryConfigService.getDefaultConfig(),
+      configurationPresets: foundryConfigService.getConfigurationPresets()
+    })
+
+  } catch (error) {
+    return createErrorResponse('Failed to get compiler configuration', 500)
+  }
+})
 
 /**
  * Update compiler configuration
  */
-export async function PUT(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const PUT = withAuth(async (request: NextRequest, context) => {
     try {
       const body = await request.json()
       const validatedData = compilerConfigSchema.parse(body)
@@ -85,20 +82,19 @@ export async function PUT(request: NextRequest) {
       }
 
       // Create updated configuration
-      const updatedConfig = {
-        ...currentConfig.foundryConfig,
+      const updatedConfig: FoundryConfig = {
         solc: validatedData.solc,
-        viaIR: validatedData.viaIR,
-        evmVersion: validatedData.evmVersion,
-        optimizer: validatedData.optimizer,
-        optimizerRuns: validatedData.optimizerRuns,
-        extraOutput: validatedData.extraOutput,
-        extraOutputFiles: validatedData.extraOutputFiles,
-        bytecodeHash: validatedData.bytecodeHash,
-        cborMetadata: validatedData.cborMetadata,
-        verbosity: validatedData.verbosity,
-        ffi: validatedData.ffi,
-        buildInfo: validatedData.buildInfo
+        optimizer: validatedData.optimizer ?? currentConfig.foundryConfig.optimizer,
+        optimizerRuns: validatedData.optimizerRuns ?? currentConfig.foundryConfig.optimizerRuns,
+        viaIR: validatedData.viaIR ?? currentConfig.foundryConfig.viaIR,
+        evmVersion: validatedData.evmVersion ?? currentConfig.foundryConfig.evmVersion,
+        extraOutput: validatedData.extraOutput ?? currentConfig.foundryConfig.extraOutput,
+        extraOutputFiles: validatedData.extraOutputFiles ?? currentConfig.foundryConfig.extraOutputFiles,
+        bytecodeHash: validatedData.bytecodeHash ?? currentConfig.foundryConfig.bytecodeHash,
+        cborMetadata: validatedData.cborMetadata ?? currentConfig.foundryConfig.cborMetadata,
+        verbosity: validatedData.verbosity ?? currentConfig.foundryConfig.verbosity,
+        ffi: validatedData.ffi ?? currentConfig.foundryConfig.ffi,
+        buildInfo: validatedData.buildInfo ?? currentConfig.foundryConfig.buildInfo
       }
 
       // Validate configuration
@@ -142,14 +138,12 @@ export async function PUT(request: NextRequest) {
         500
       )
     }
-  })
-}
+})
 
 /**
  * Apply compiler preset
  */
-export async function POST(request: NextRequest) {
-  return withAuth(request, async (session) => {
+export const POST = withAuth(async (request: NextRequest, context) => {
     try {
       const body = await request.json()
       const { courseId, preset } = body
@@ -190,5 +184,4 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       return createErrorResponse('Failed to apply compiler preset', 500)
     }
-  })
-}
+})

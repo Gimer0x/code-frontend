@@ -74,7 +74,10 @@ export default function LessonPage({ params }: { params: Promise<{ id: string; m
     solutionCode: (lesson as any).solutionCode || null,
     tests: (lesson as any).tests || null,
     order: 1, // Default order
-    module: lesson.module || {
+    module: lesson.module ? {
+      ...lesson.module,
+      description: (lesson.module as any).description || ''
+    } : {
       id: moduleId || '',
       title: 'Module',
       description: '',

@@ -8,13 +8,14 @@ export async function POST(request: NextRequest) {
   try {
     // Get NextAuth session
     const session = await getServerSession(authOptions)
+    const sessionAny = session as any
     
     // Get backend token from session or Authorization header
     let backendToken: string | null = null
     
     // Try to get token from NextAuth session
-    if (session?.backendAccessToken) {
-      backendToken = session.backendAccessToken as string
+    if (sessionAny?.backendAccessToken) {
+      backendToken = sessionAny.backendAccessToken as string
     }
     
     // Fallback: try to get from Authorization header

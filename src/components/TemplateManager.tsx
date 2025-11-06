@@ -9,6 +9,11 @@ interface Template {
   category: string
   difficulty: string
   language: string
+  files?: Array<{
+    path: string
+    content: string
+    description?: string
+  }>
   metadata: {
     author?: string
     version: string

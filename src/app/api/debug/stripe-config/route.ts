@@ -21,7 +21,7 @@ export async function GET() {
     return NextResponse.json(config)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to get config', details: error.message },
+      { error: 'Failed to get config', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

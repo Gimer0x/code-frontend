@@ -63,16 +63,16 @@ export function TestResultsDisplay({ result, className }: { result: TestExecutio
       </div>
 
       {/* Test summary stats - only show if we have meaningful counts */}
-      {(result.testCount > 0 || result.passedCount > 0 || result.failedCount > 0) && (
+      {((result.testCount ?? 0) > 0 || (result.passedCount ?? 0) > 0 || (result.failedCount ?? 0) > 0) && (
         <div className="mb-3 p-2 bg-gray-100 dark:bg-gray-800 rounded">
           <div className="flex gap-4 text-xs">
-            {result.testCount > 0 && (
+            {(result.testCount ?? 0) > 0 && (
               <span>Total: {result.testCount}</span>
             )}
-            {result.passedCount > 0 && (
+            {(result.passedCount ?? 0) > 0 && (
               <span className="text-green-600 dark:text-green-400">Passed: {result.passedCount}</span>
             )}
-            {result.failedCount > 0 && (
+            {(result.failedCount ?? 0) > 0 && (
               <span className="text-red-600 dark:text-red-400">Failed: {result.failedCount}</span>
             )}
           </div>

@@ -114,7 +114,7 @@ export default function CourseCreationForm({
         const templateDeps = template.dependencies || []
         const mergedDeps = [...existingDeps]
         
-        templateDeps.forEach(templateDep => {
+        templateDeps.forEach((templateDep: { name: string; version: string; source: string }) => {
           const exists = mergedDeps.some(dep => dep.name === templateDep.name)
           if (!exists) {
             mergedDeps.push(templateDep)
