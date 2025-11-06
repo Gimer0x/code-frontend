@@ -2,22 +2,31 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAdminAuth } from '@/contexts/AdminAuthContext'
 
 interface AdminRouteProps {
   children: React.ReactNode
 }
 
 export default function AdminRoute({ children }: AdminRouteProps) {
-  const { isAuthenticated, isAdmin, loading } = useAuth()
+  const { isAuthenticated, isAdmin, loading } = useAdminAuth()
   const router = useRouter()
 
   useEffect(() => {
+    // Only check and redirect after loading is complete
     if (!loading) {
-      if (!isAuthenticated) {
-        router.push('/admin/login')
-      } else if (!isAdmin) {
-        router.push('/admin/login?error=unauthorized')
+      if (!isAuthenticated || !isAdmin) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('AdminRoute: Not authenticated or not admin, redirecting to login', {
+            isAuthenticated,
+            isAdmin
+          })
+        }
+        router.replace('/admin/login')
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('AdminRoute: User is authenticated and admin, allowing access')
+        }
       }
     }
   }, [isAuthenticated, isAdmin, loading, router])

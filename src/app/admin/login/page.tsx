@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAdminAuth } from '@/contexts/AdminAuthContext'
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('')
@@ -16,12 +16,12 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false)
   
   const router = useRouter()
-  const { login, logout, isAuthenticated, isAdmin, user, loading: authLoading } = useAuth()
+  const { login, isAuthenticated, isAdmin, loading: authLoading } = useAdminAuth()
 
   // Redirect if already authenticated as admin
   useEffect(() => {
     if (!authLoading && isAuthenticated && isAdmin) {
-      router.push('/admin/dashboard')
+      router.replace('/admin/dashboard')
     }
   }, [isAuthenticated, isAdmin, authLoading, router])
 
@@ -34,16 +34,8 @@ export default function AdminLogin() {
       const result = await login({ email, password })
 
       if (result.success) {
-        // Wait for auth state to update, then check admin status
-        // The useEffect will handle redirect if user is admin
-        // If not admin, we'll check and logout in a moment
-        setTimeout(() => {
-          // Check again after state update
-          if (!isAdmin) {
-            setError('Admin access required. Please contact an administrator.')
-            logout()
-          }
-        }, 200)
+        // Login successful - useEffect will handle redirect
+        // No need for setTimeout - AdminAuthContext handles state properly
       } else {
         setError(result.error || 'Invalid email or password')
       }

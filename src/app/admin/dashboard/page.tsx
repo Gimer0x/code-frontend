@@ -3,15 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAdminAuth } from '@/contexts/AdminAuthContext'
 import AdminRoute from '@/components/AdminRoute'
-
-interface User {
-  id: string
-  email: string
-  name: string
-  role: 'ADMIN' | 'STUDENT'
-}
 
 interface Course {
   id: string
@@ -40,7 +33,7 @@ interface DashboardStats {
 }
 
 export default function AdminDashboard() {
-  const { user, logout } = useAuth()
+  const { user, logout } = useAdminAuth()
   const [showPasswordChange, setShowPasswordChange] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')

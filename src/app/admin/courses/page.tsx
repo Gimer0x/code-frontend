@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAdminAuth } from '@/contexts/AdminAuthContext'
 import AdminRoute from '@/components/AdminRoute'
 import Link from 'next/link'
 import CourseManagementDashboard from '@/components/CourseManagementDashboard'
@@ -39,7 +39,7 @@ interface Course {
 }
 
 export default function AdminCourses() {
-  const { user, loading, logout } = useAuth()
+  const { user, loading, logout } = useAdminAuth()
   const [courses, setCourses] = useState<Course[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

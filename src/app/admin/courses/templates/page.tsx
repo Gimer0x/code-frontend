@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAdminAuth } from '@/contexts/AdminAuthContext'
 import AdminRoute from '@/components/AdminRoute'
 import TemplateManager from '@/components/TemplateManager'
 import TemplatePreview from '@/components/TemplatePreview'
@@ -43,7 +43,7 @@ interface Template {
 }
 
 export default function CourseTemplates() {
-  const { user, loading } = useAuth()
+  const { user, loading } = useAdminAuth()
   const router = useRouter()
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [showPreview, setShowPreview] = useState(false)

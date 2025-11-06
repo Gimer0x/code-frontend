@@ -22,7 +22,6 @@ interface User {
 interface AuthContextType {
   user: User | null
   loading: boolean
-  login: (credentials: { email: string; password: string }) => Promise<{ success: boolean; message?: string; error?: string }>
   register: (userData: { email: string; password: string; name: string; role?: 'ADMIN' | 'STUDENT' }) => Promise<{ success: boolean; message?: string; error?: string }>
   loginWithGoogle: (idToken: string) => Promise<{ success: boolean; message?: string; error?: string }>
   logout: () => Promise<void>
@@ -34,78 +33,90 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUserState] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const { data: session, status } = useSession()
+  
+  // Wrapper to log when user is set/cleared
+  const setUser = React.useCallback((newUser: User | null) => {
+    if (process.env.NODE_ENV === 'development') {
+      const stack = new Error().stack
+      console.log('setUser called:', {
+        newUser: newUser ? { role: newUser.role, email: newUser.email } : null,
+        stack: stack?.split('\n').slice(2, 5).join('\n')
+      })
+    }
+    setUserState(newUser)
+  }, [])
 
   // Bootstrap auth state from existing backend tokens or from NextAuth session
-  const bootstrap = React.useCallback(async () => {
-    // Case 1: tokens already exist locally
-    if (authService.isAuthenticated()) {
-      try {
-        const data = await authService.getProfile()
-        if (data.success) {
-          setUser(data.user)
-          setLoading(false)
-          return
-        }
-      } catch {}
-      authService.logout()
+  // Use a ref to check current user state to avoid dependency issues
+  const userRef = React.useRef(user)
+  useEffect(() => {
+    userRef.current = user
+    if (process.env.NODE_ENV === 'development') {
+      console.log('userRef updated:', { user: user ? { role: user.role, email: user.email } : null })
     }
-
-    // Case 2: user logged in via NextAuth (Google or credentials), adopt backend tokens from session
-    // Only use session if it's loaded - don't call getSession() to avoid extra request
+  }, [user])
+  
+  const bootstrap = React.useCallback(async () => {
+    // Only bootstrap from NextAuth session - users authenticate via NextAuth
+    // Admin authentication is handled by AdminAuthContext
     if (status === 'loading') {
       return // Wait for session to load
+    }
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('UserAuth: Bootstrap - checking NextAuth session', { status })
     }
     
     try {
       const currentSession: any = session
       if (currentSession?.backendAccessToken && currentSession?.backendRefreshToken) {
+        // User logged in via NextAuth (Google or credentials) - adopt backend tokens from session
         authService.setTokens(currentSession.backendAccessToken, currentSession.backendRefreshToken)
         const data = await authService.getProfile()
         if (data.success) {
           setUser(data.user)
+          if (process.env.NODE_ENV === 'development') {
+            console.log('UserAuth: User loaded from NextAuth session', { userRole: data.user.role })
+          }
         }
-      } else if (currentSession?.user && !authService.isAuthenticated()) {
-        // Session exists but no backend tokens - might be credentials sign-in without backend auth
-        // In this case, we'd need to authenticate with backend, but for now just show NextAuth user
-        // For credentials sign-in, backend tokens should be set during sign-in
-        // If tokens aren't there, we should handle it differently
+      } else if (currentSession?.user) {
+        // Session exists but no backend tokens - use NextAuth user data
+        // This might happen if backend auth failed during sign-in
+        if (process.env.NODE_ENV === 'development') {
+          console.log('UserAuth: Using NextAuth user without backend tokens')
+        }
       }
-    } catch {}
-    setLoading(false)
-  }, [session, status]) // Include status to wait for session to load
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('UserAuth: Bootstrap error', error)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [session, status])
 
   useEffect(() => {
     bootstrap()
   }, [bootstrap])
 
-  // Listen for session changes (when user signs in/out)
+  // Listen for session changes (when user signs in/out via NextAuth)
   useEffect(() => {
     if (status === 'authenticated' && session) {
       // Session is available, refresh auth state
       bootstrap()
     } else if (status === 'unauthenticated') {
-      // No session, clear user if not authenticated via tokens
-      if (!authService.isAuthenticated()) {
-        setUser(null)
-        setLoading(false)
+      // No NextAuth session - clear user
+      // Users authenticate via NextAuth, so if session is gone, user should be cleared
+      if (process.env.NODE_ENV === 'development') {
+        console.log('UserAuth: Session unauthenticated, clearing user')
       }
+      setUser(null)
+      setLoading(false)
     }
   }, [status, session, bootstrap])
-
-  const login = async (credentials: { email: string; password: string }) => {
-    try {
-      const result = await authService.login(credentials)
-      if (result.success) {
-        setUser(result.user)
-      }
-      return result
-    } catch (error) {
-      return { success: false, error: 'Login failed. Please try again.' }
-    }
-  }
 
   const register = async (userData: { email: string; password: string; name: string; role?: 'ADMIN' | 'STUDENT' }) => {
     try {
@@ -162,15 +173,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
+  // Compute isAuthenticated and isAdmin from user state
+  // This ensures they update immediately when user changes
+  const isAuthenticated = !!user
+  const isAdmin = user?.role === 'ADMIN'
+  
   const value: AuthContextType = {
     user,
     loading,
-    login,
     register,
     loginWithGoogle,
     logout,
-    isAuthenticated: !!user,
-    isAdmin: user?.role === 'ADMIN',
+    isAuthenticated,
+    isAdmin,
     refreshUser
   }
 

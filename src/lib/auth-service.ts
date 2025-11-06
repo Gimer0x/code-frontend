@@ -183,8 +183,23 @@ class AuthService {
   }
 
   // Check if user is authenticated
+  // Check both instance variable and localStorage to handle remounts
   isAuthenticated(): boolean {
-    return !!this.accessToken;
+    // Check instance variable first (faster)
+    if (this.accessToken) {
+      return true;
+    }
+    // If instance variable is null, check localStorage (handles remounts)
+    if (typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem('accessToken');
+      if (storedToken) {
+        // Restore instance variable from localStorage
+        this.accessToken = storedToken;
+        this.refreshToken = localStorage.getItem('refreshToken');
+        return true;
+      }
+    }
+    return false;
   }
 
   // Check if user is admin

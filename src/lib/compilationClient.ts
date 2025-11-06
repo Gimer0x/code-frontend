@@ -278,6 +278,14 @@ export class CompilationClient {
   ): Promise<T> {
     const url = `${this.config.baseUrl}${endpoint}`
     
+    // Skip requests if baseUrl is not configured
+    if (!this.config.baseUrl || this.config.baseUrl.trim() === '') {
+      throw new CompilationError(
+        'Compilation service URL is not configured',
+        503
+      )
+    }
+    
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), this.config.timeout)

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAdminAuth } from '@/contexts/AdminAuthContext'
 import AdminRoute from '@/components/AdminRoute'
 import Link from 'next/link'
 import SimpleCourseCreationForm from '@/components/SimpleCourseCreationForm'
@@ -15,7 +15,7 @@ interface User {
 }
 
 export default function CreateCourse() {
-  const { user, loading } = useAuth()
+  const { user, loading } = useAdminAuth()
   const router = useRouter()
 
   useEffect(() => {
