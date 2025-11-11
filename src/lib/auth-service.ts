@@ -91,19 +91,36 @@ class AuthService {
 
   // Login user
   async login(credentials: { email: string; password: string }) {
-    const response = await fetch(`${this.baseURL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(credentials)
-    });
+    try {
+      const response = await fetch(`${this.baseURL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials)
+      });
 
-    const data = await response.json();
-    
-    if (data.success) {
-      this.setTokens(data.accessToken, data.refreshToken);
+      const data = await response.json();
+      
+      // Check for database connection errors
+      if (!response.ok && data.error && data.error.includes('Server has closed the connection')) {
+        return {
+          success: false,
+          error: 'Database connection error',
+          message: 'The backend cannot connect to the database. Please try again later or contact support.'
+        };
+      }
+      
+      if (data.success) {
+        this.setTokens(data.accessToken, data.refreshToken);
+      }
+
+      return data;
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Login failed',
+        message: error instanceof Error ? error.message : 'Unable to connect to the backend. Please check your connection and try again.'
+      };
     }
-
-    return data;
   }
 
   // Refresh access token

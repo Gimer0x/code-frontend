@@ -17,16 +17,28 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    const data = await backendResponse.json()
+    
     if (!backendResponse.ok) {
-      throw new Error(`Backend responded with status: ${backendResponse.status}`)
+      // Check if it's a database connection error
+      if (data.error && data.error.includes('Server has closed the connection')) {
+        return NextResponse.json({
+          success: false,
+          error: 'Database connection error. The backend cannot connect to the database.',
+          details: 'Please check the backend database connection and try again later.'
+        }, { status: 503 })
+      }
+      return NextResponse.json(data, { status: backendResponse.status })
     }
 
-    const data = await backendResponse.json()
     return NextResponse.json(data)
 
   } catch (error) {
+    console.error('Error fetching courses:', error)
     return NextResponse.json({
-      error: 'Failed to fetch courses from backend'
+      success: false,
+      error: 'Failed to fetch courses from backend',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
 }

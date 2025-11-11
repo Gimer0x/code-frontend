@@ -64,7 +64,9 @@ export function normalizeImageUrl(imageUrl: string | null | undefined): string |
   // Remove protocol if present (http:// or https://)
   let normalized = imageUrl.replace(/^https?:\/\//, '')
   
-  normalized = normalized.replace(/^[^\/]+\//, '')
+  // Remove domain part if present (e.g., "example.com/path" -> "path")
+  // This handles cases like "code-backend.fly.dev/uploads/courses/image.webp"
+  normalized = normalized.replace(/^[^\/]+/, '')
   
   // Remove leading slash if present
   normalized = normalized.replace(/^\//, '')
@@ -93,5 +95,12 @@ export function normalizeImageUrl(imageUrl: string | null | undefined): string |
   }
   
   // Convert to proxy URL
-  return `/api/images/${normalized}`
+  const proxyUrl = `/api/images/${normalized}`
+  
+  // Debug logging in development
+  if (process.env.NODE_ENV === 'development' && imageUrl !== proxyUrl) {
+    console.log('Image URL normalized:', { original: imageUrl, normalized: proxyUrl })
+  }
+  
+  return proxyUrl
 }

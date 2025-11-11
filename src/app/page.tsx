@@ -135,6 +135,14 @@ export default function Home() {
                             src={api.getImageUrl(course.thumbnail) || ''} 
                             alt={course.title}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback to placeholder if image fails to load
+                              const target = e.target as HTMLImageElement
+                              if (target.src && !target.src.includes('placeholder')) {
+                                console.error('Failed to load course image:', course.thumbnail, 'Normalized URL:', api.getImageUrl(course.thumbnail))
+                                target.src = '/uploads/thumbnails/placeholder.svg'
+                              }
+                            }}
                           />
                         </div>
                       ) : (
