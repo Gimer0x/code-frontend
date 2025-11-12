@@ -2,6 +2,14 @@ import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
 
+// In development, always use http://localhost:3000 for NEXTAUTH_URL
+// This ensures the OAuth redirect URI matches what's configured in Google Cloud Console
+// The redirect URI format is: {NEXTAUTH_URL}/api/auth/callback/google
+if (process.env.NODE_ENV === 'development') {
+  // Force http (not https) for localhost
+  process.env.NEXTAUTH_URL = 'http://localhost:3000'
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -133,8 +141,37 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async redirect({ url, baseUrl }) {
-      // Default: send users to home to pick a course; admins can navigate to dashboard
-      return '/'
+      // In development, ensure we always redirect to localhost (not production)
+      const isDevelopment = process.env.NODE_ENV === 'development'
+      const localBaseUrl = 'http://localhost:3000'
+      
+      // If url is the baseUrl or signin page, redirect to home
+      if (url === baseUrl || url === `${baseUrl}/auth/signin` || url === `${baseUrl}/auth/signin?error=OAuthCallback`) {
+        return isDevelopment ? `${localBaseUrl}/` : `${baseUrl}/`
+      }
+      
+      // If url is a relative path, make it absolute using the correct base URL
+      if (url.startsWith('/')) {
+        return isDevelopment ? `${localBaseUrl}${url}` : `${baseUrl}${url}`
+      }
+      
+      // If url is an absolute URL, check if we need to replace the origin
+      try {
+        const urlObj = new URL(url)
+        // In development, replace any production URL with localhost
+        if (isDevelopment && urlObj.origin !== localBaseUrl) {
+          return `${localBaseUrl}${urlObj.pathname}${urlObj.search}${urlObj.hash}`
+        }
+        // If same origin, allow it
+        if (urlObj.origin === baseUrl || urlObj.origin === localBaseUrl) {
+          return url
+        }
+      } catch {
+        // Invalid URL, fall through to default
+      }
+      
+      // Default: send users to home
+      return isDevelopment ? `${localBaseUrl}/` : `${baseUrl}/`
     }
   },
   pages: {
