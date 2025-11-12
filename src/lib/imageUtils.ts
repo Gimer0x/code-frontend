@@ -47,33 +47,43 @@ export function getThumbnailUrl(filename: string): string {
 }
 
 /**
- * Gets the full backend URL for a course image
+ * Gets the image URL for a course thumbnail
  * 
  * CRITICAL: Database stores thumbnail paths like "uploads/courses/filename.webp" (no leading slash)
  * Backend serves images at:
  *   - /uploads/* → maps to uploads/ directory
  *   - /api/images/* → also maps to uploads/ directory (alias)
  * 
- * IMPORTANT: Do NOT use /api/images/uploads/ - this is incorrect!
- * The /api/images/ path already maps to uploads/, so adding /uploads/ creates /api/images/uploads/
- * which looks for uploads/uploads/ (WRONG!)
- * 
- * This function always uses /uploads/ path directly.
+ * IMPORTANT: To avoid CORS issues, we use the Next.js proxy route /api/images/[...path]
+ * The proxy route handles cross-origin requests server-side.
  * 
  * @param thumbnail - Path from database (e.g., "uploads/courses/filename.webp" or "/uploads/courses/filename.webp")
- * @returns Full backend URL (e.g., "https://code-backend.fly.dev/uploads/courses/filename.webp")
+ * @returns Proxy URL (e.g., "/api/images/uploads/courses/filename.webp") to avoid CORS issues
  */
 export function getCourseImageUrl(thumbnail: string | null | undefined): string | null {
   if (!thumbnail || thumbnail.trim() === '') {
     return null
   }
 
-  // Get backend base URL from environment
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
-  
-  // If already a full URL (starts with http:// or https://), return as-is
+  // If already a full URL (starts with http:// or https://), check if it's same-origin
+  // If it's cross-origin, we should still use the proxy to avoid CORS
   if (thumbnail.startsWith('http://') || thumbnail.startsWith('https://')) {
-    return thumbnail
+    // Check if it's same-origin (for localhost or same domain)
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(thumbnail)
+        const currentOrigin = window.location.origin
+        // If same origin, return as-is; otherwise use proxy
+        if (url.origin === currentOrigin) {
+          return thumbnail
+        }
+      } catch {
+        // Invalid URL, continue with normalization
+      }
+    } else {
+      // Server-side: return as-is for full URLs
+      return thumbnail
+    }
   }
   
   // Normalize the thumbnail path
@@ -85,13 +95,9 @@ export function getCourseImageUrl(thumbnail: string | null | undefined): string 
     path = path.slice(1)
   }
   
-  // Remove "api/images/" prefix if present (incorrect format)
-  // The /api/images/ path already maps to uploads/, so we don't need both
-  // Handle cases like "api/images/uploads/courses/file.webp" → "uploads/courses/file.webp"
+  // Remove "api/images/" prefix if present (we'll add it back for the proxy)
   if (path.startsWith('api/images/')) {
     path = path.replace(/^api\/images\//, '')
-    // If after removing "api/images/" it still starts with "uploads/", that's correct
-    // If it doesn't, we'll add "uploads/" below
   }
   
   // Ensure path starts with "uploads/" (database should already have this, but handle edge cases)
@@ -99,21 +105,21 @@ export function getCourseImageUrl(thumbnail: string | null | undefined): string 
     path = `uploads/${path}`
   }
   
-  // Construct full URL using /uploads/ path directly (NOT /api/images/uploads/)
-  // Result: https://code-backend.fly.dev/uploads/courses/filename.webp
-  const fullUrl = `${apiBaseUrl}/${path}`
+  // Use Next.js proxy route to avoid CORS issues
+  // The proxy route /api/images/[...path] will forward to the backend
+  // Result: /api/images/uploads/courses/filename.webp
+  const proxyUrl = `/api/images/${path}`
   
   // Debug logging in development
   if (process.env.NODE_ENV === 'development') {
     console.log('Course image URL constructed:', { 
       original: thumbnail, 
       normalized: path, 
-      fullUrl,
-      apiBaseUrl 
+      proxyUrl
     })
   }
   
-  return fullUrl
+  return proxyUrl
 }
 
 /**
