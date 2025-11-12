@@ -217,6 +217,28 @@ class DappDojoAPI {
     });
   }
 
+  // User courses methods
+  async getUserCourses(page = 1, limit = 10) {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    // Use frontend API route which handles authentication
+    const response = await fetch(`/api/user/courses?${params}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || `Request failed with status ${response.status}`);
+    }
+    
+    return response.json();
+  }
+
   // Helper method to get image URL (direct backend URL)
   getImageUrl(thumbnail: string | null): string | null {
     if (!thumbnail) return null;
