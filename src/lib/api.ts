@@ -147,14 +147,14 @@ class DappDojoAPI {
     });
   }
 
-  // Helper method to get image URL (relative for Next.js proxy)
+  // Helper method to get image URL (direct backend URL)
   getImageUrl(thumbnail: string | null): string | null {
     if (!thumbnail) return null;
     
-    // Normalize the URL to use the frontend proxy
-    // Import normalizeImageUrl dynamically to avoid circular dependencies
-    const { normalizeImageUrl } = require('@/lib/imageUtils');
-    return normalizeImageUrl(thumbnail);
+    // Get the full backend URL for the image
+    // Import getCourseImageUrl dynamically to avoid circular dependencies
+    const { getCourseImageUrl } = require('@/lib/imageUtils');
+    return getCourseImageUrl(thumbnail);
   }
 }
 

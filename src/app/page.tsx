@@ -136,11 +136,12 @@ export default function Home() {
                             alt={course.title}
                             className="w-full h-full object-cover"
                             onError={(e) => {
-                              // Fallback to placeholder if image fails to load
+                              // Fallback to a simple placeholder if image fails to load
                               const target = e.target as HTMLImageElement
-                              if (target.src && !target.src.includes('placeholder')) {
-                                console.error('Failed to load course image:', course.thumbnail, 'Normalized URL:', api.getImageUrl(course.thumbnail))
-                                target.src = '/uploads/thumbnails/placeholder.svg'
+                              if (target.src && !target.src.includes('data:image')) {
+                                console.error('Failed to load course image:', course.thumbnail, 'Full URL:', api.getImageUrl(course.thumbnail))
+                                // Use a simple SVG placeholder as data URL
+                                target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" font-family="sans-serif" font-size="18" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EImage not available%3C/text%3E%3C/svg%3E'
                               }
                             }}
                           />

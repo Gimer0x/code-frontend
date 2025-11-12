@@ -47,60 +47,68 @@ export function getThumbnailUrl(filename: string): string {
 }
 
 /**
- * Normalizes image URLs from backend responses to use the frontend proxy
+ * Gets the full backend URL for a course image
+ * According to backend guidelines:
+ * - Database stores: "uploads/courses/filename.webp" (no leading slash)
+ * - Backend serves at: /uploads/* or /api/images/* (both map to same directory)
+ * - IMPORTANT: Do NOT use /api/images/uploads/ - this is incorrect!
+ * 
  * Handles various formats:
- * - `uploads/courses/...` -> `/api/images/uploads/courses/...`
- * - `http://uploads/...` -> `/api/images/uploads/...`
-  * - Already normalized `/api/images/...` -> unchanged
+ * - `uploads/courses/...` -> `https://code-backend.fly.dev/uploads/courses/...`
+ * - `/uploads/courses/...` -> `https://code-backend.fly.dev/uploads/courses/...`
+ * - `api/images/courses/...` -> `https://code-backend.fly.dev/uploads/courses/...` (removes api/images prefix)
+ * - Already full URL -> return as-is
  */
-export function normalizeImageUrl(imageUrl: string | null | undefined): string | null {
-  if (!imageUrl) return null
+export function getCourseImageUrl(thumbnail: string | null | undefined): string | null {
+  if (!thumbnail || thumbnail.trim() === '') {
+    return null
+  }
+
+  // Get backend base URL from environment
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
   
-  // Already using the proxy, return as-is
-  if (imageUrl.startsWith('/api/images/')) {
-    return imageUrl
+  // If already a full URL (starts with http:// or https://), return as-is
+  if (thumbnail.startsWith('http://') || thumbnail.startsWith('https://')) {
+    return thumbnail
   }
   
-  // Remove protocol if present (http:// or https://)
-  let normalized = imageUrl.replace(/^https?:\/\//, '')
-  
-  // Remove domain part if present (e.g., "example.com/path" -> "path")
-  // This handles cases like "code-backend.fly.dev/uploads/courses/image.webp"
-  normalized = normalized.replace(/^[^\/]+/, '')
+  // Normalize the thumbnail path
+  // Database may store: "uploads/courses/filename.webp" or "/uploads/courses/filename.webp"
+  let cleanPath = thumbnail.trim()
   
   // Remove leading slash if present
-  normalized = normalized.replace(/^\//, '')
-  
-  // Ensure it starts with 'uploads/'
-  if (!normalized.startsWith('uploads/')) {
-    // If it starts with 'courses/', prepend 'uploads/'
-    if (normalized.startsWith('courses/')) {
-      normalized = `uploads/${normalized}`
-    } else {
-      // Try to extract the path - look for 'uploads/' in the string
-      const uploadsIndex = normalized.indexOf('uploads/')
-      if (uploadsIndex !== -1) {
-        normalized = normalized.substring(uploadsIndex)
-      } else {
-        // If no uploads path found, try to infer from common patterns
-        // If it looks like a filename with extension, assume it's in uploads/courses/
-        if (normalized.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
-          normalized = `uploads/courses/${normalized}`
-        } else {
-          // Fallback: if it's a path without extension, assume uploads/courses/
-          normalized = `uploads/courses/${normalized}`
-        }
-      }
-    }
+  if (cleanPath.startsWith('/')) {
+    cleanPath = cleanPath.slice(1)
   }
   
-  // Convert to proxy URL
-  const proxyUrl = `/api/images/${normalized}`
+  // IMPORTANT: If path starts with "api/images/", remove that prefix
+  // The /api/images/ path already maps to uploads/, so we don't need both
+  if (cleanPath.startsWith('api/images/')) {
+    // Remove the "api/images/" prefix since we'll use /uploads/ directly
+    cleanPath = cleanPath.replace(/^api\/images\//, '')
+  }
+  
+  // Ensure path starts with "uploads/" (database may or may not have it)
+  if (!cleanPath.startsWith('uploads/')) {
+    cleanPath = `uploads/${cleanPath}`
+  }
+  
+  // Construct full URL using /uploads/ path directly (NOT /api/images/uploads/)
+  const fullUrl = `${apiBaseUrl}/${cleanPath}`
   
   // Debug logging in development
-  if (process.env.NODE_ENV === 'development' && imageUrl !== proxyUrl) {
-    console.log('Image URL normalized:', { original: imageUrl, normalized: proxyUrl })
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Course image URL constructed:', { original: thumbnail, cleanPath, fullUrl })
   }
   
-  return proxyUrl
+  return fullUrl
+}
+
+/**
+ * Normalizes image URLs from backend responses to use direct backend URLs
+ * This is an alias for getCourseImageUrl for backward compatibility
+ * @deprecated Use getCourseImageUrl instead
+ */
+export function normalizeImageUrl(imageUrl: string | null | undefined): string | null {
+  return getCourseImageUrl(imageUrl)
 }
