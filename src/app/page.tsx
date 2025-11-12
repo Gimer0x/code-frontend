@@ -1,7 +1,9 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCourses } from '@/hooks/useCourses'
+import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 
 interface Course {
@@ -18,6 +20,8 @@ interface Course {
 
 export default function Home() {
   const { courses: backendCourses, loading, error } = useCourses(1, 10)
+  const { isAuthenticated, loading: authLoading } = useAuth()
+  const router = useRouter()
   
   // Transform backend courses to match our interface
   const courses: Course[] = backendCourses.map(course => ({
@@ -31,6 +35,19 @@ export default function Home() {
     moduleCount: course._count.modules,
     totalLessons: course._count.modules // We'll calculate this properly when we have lesson counts
   }))
+
+  const handleStartCourse = (courseId: string) => {
+    // If not authenticated, redirect to sign-in with callback URL
+    if (!authLoading && !isAuthenticated) {
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(`/courses/${courseId}`)}`)
+      return
+    }
+    
+    // If authenticated, navigate to course
+    if (isAuthenticated) {
+      router.push(`/courses/${courseId}`)
+    }
+  }
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
       {/* Main Content */}
@@ -174,11 +191,13 @@ export default function Home() {
                         
                         {/* Start Course Button */}
                         <div className="flex justify-end">
-                          <Link href={`/courses/${course.id}`}>
-                            <button className="bg-yellow-500 text-black px-4 py-2 rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors">
-                              Start Course
-                            </button>
-                          </Link>
+                          <button 
+                            onClick={() => handleStartCourse(course.id)}
+                            disabled={authLoading}
+                            className="bg-yellow-500 text-black px-4 py-2 rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {authLoading ? 'Loading...' : 'Start Course'}
+                          </button>
                         </div>
                       </div>
                     </div>

@@ -1,17 +1,22 @@
 "use client"
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { signOut } from 'next-auth/react'
 
 export default function Navigation() {
   const { user, isAuthenticated, logout } = useAuth()
+  const router = useRouter()
 
   const handleLogout = async () => {
     try {
       // Clear backend tokens and NextAuth session
       logout()
       await signOut({ redirect: false })
+      // Redirect to main page after logout
+      router.push('/')
+      router.refresh()
     } catch {}
   }
   return (
