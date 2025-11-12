@@ -48,16 +48,20 @@ export function getThumbnailUrl(filename: string): string {
 
 /**
  * Gets the full backend URL for a course image
- * According to backend guidelines:
- * - Database stores: "uploads/courses/filename.webp" (no leading slash)
- * - Backend serves at: /uploads/* or /api/images/* (both map to same directory)
- * - IMPORTANT: Do NOT use /api/images/uploads/ - this is incorrect!
  * 
- * Handles various formats:
- * - `uploads/courses/...` -> `https://code-backend.fly.dev/uploads/courses/...`
- * - `/uploads/courses/...` -> `https://code-backend.fly.dev/uploads/courses/...`
- * - `api/images/courses/...` -> `https://code-backend.fly.dev/uploads/courses/...` (removes api/images prefix)
- * - Already full URL -> return as-is
+ * CRITICAL: Database stores thumbnail paths like "uploads/courses/filename.webp" (no leading slash)
+ * Backend serves images at:
+ *   - /uploads/* → maps to uploads/ directory
+ *   - /api/images/* → also maps to uploads/ directory (alias)
+ * 
+ * IMPORTANT: Do NOT use /api/images/uploads/ - this is incorrect!
+ * The /api/images/ path already maps to uploads/, so adding /uploads/ creates /api/images/uploads/
+ * which looks for uploads/uploads/ (WRONG!)
+ * 
+ * This function always uses /uploads/ path directly.
+ * 
+ * @param thumbnail - Path from database (e.g., "uploads/courses/filename.webp" or "/uploads/courses/filename.webp")
+ * @returns Full backend URL (e.g., "https://code-backend.fly.dev/uploads/courses/filename.webp")
  */
 export function getCourseImageUrl(thumbnail: string | null | undefined): string | null {
   if (!thumbnail || thumbnail.trim() === '') {
@@ -73,32 +77,40 @@ export function getCourseImageUrl(thumbnail: string | null | undefined): string 
   }
   
   // Normalize the thumbnail path
-  // Database may store: "uploads/courses/filename.webp" or "/uploads/courses/filename.webp"
-  let cleanPath = thumbnail.trim()
+  // Database stores: "uploads/courses/filename.webp" (no leading slash)
+  let path = thumbnail.trim()
   
   // Remove leading slash if present
-  if (cleanPath.startsWith('/')) {
-    cleanPath = cleanPath.slice(1)
+  if (path.startsWith('/')) {
+    path = path.slice(1)
   }
   
-  // IMPORTANT: If path starts with "api/images/", remove that prefix
+  // Remove "api/images/" prefix if present (incorrect format)
   // The /api/images/ path already maps to uploads/, so we don't need both
-  if (cleanPath.startsWith('api/images/')) {
-    // Remove the "api/images/" prefix since we'll use /uploads/ directly
-    cleanPath = cleanPath.replace(/^api\/images\//, '')
+  // Handle cases like "api/images/uploads/courses/file.webp" → "uploads/courses/file.webp"
+  if (path.startsWith('api/images/')) {
+    path = path.replace(/^api\/images\//, '')
+    // If after removing "api/images/" it still starts with "uploads/", that's correct
+    // If it doesn't, we'll add "uploads/" below
   }
   
-  // Ensure path starts with "uploads/" (database may or may not have it)
-  if (!cleanPath.startsWith('uploads/')) {
-    cleanPath = `uploads/${cleanPath}`
+  // Ensure path starts with "uploads/" (database should already have this, but handle edge cases)
+  if (!path.startsWith('uploads/')) {
+    path = `uploads/${path}`
   }
   
   // Construct full URL using /uploads/ path directly (NOT /api/images/uploads/)
-  const fullUrl = `${apiBaseUrl}/${cleanPath}`
+  // Result: https://code-backend.fly.dev/uploads/courses/filename.webp
+  const fullUrl = `${apiBaseUrl}/${path}`
   
   // Debug logging in development
   if (process.env.NODE_ENV === 'development') {
-    console.log('Course image URL constructed:', { original: thumbnail, cleanPath, fullUrl })
+    console.log('Course image URL constructed:', { 
+      original: thumbnail, 
+      normalized: path, 
+      fullUrl,
+      apiBaseUrl 
+    })
   }
   
   return fullUrl

@@ -32,14 +32,25 @@ export async function GET(
     const backendBase = BACKEND_URL.endsWith('/') ? BACKEND_URL.slice(0, -1) : BACKEND_URL
     const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath
     
+    // IMPORTANT: /api/images/ already maps to uploads/, so we should NOT use /api/images/uploads/
+    // If cleanPath is "uploads/courses/file.webp", then:
+    // - /uploads/courses/file.webp → correct
+    // - /api/images/courses/file.webp → correct (removes uploads/ prefix)
+    // - /api/images/uploads/courses/file.webp → WRONG! (looks for uploads/uploads/)
+    
+    // Remove "uploads/" prefix if using /api/images/ path
+    const pathWithoutUploads = cleanPath.startsWith('uploads/') 
+      ? cleanPath.replace(/^uploads\//, '') 
+      : cleanPath
+    
     // Try multiple possible paths:
-    // 1. Direct static file path: /uploads/courses/image.webp
-    // 2. API endpoint: /api/images/uploads/courses/image.webp
-    // 3. Files API: /api/files/uploads/courses/image.webp
+    // 1. Direct static file path: /uploads/courses/image.webp (RECOMMENDED)
+    // 2. API endpoint: /api/images/courses/image.webp (without uploads/ prefix)
+    // 3. Files API: /api/files/courses/image.webp (without uploads/ prefix)
     const possibleUrls = [
-      `${backendBase}/${cleanPath}`, // Direct static file
-      `${backendBase}/api/images/${cleanPath}`, // API endpoint
-      `${backendBase}/api/files/${cleanPath}`, // Files API
+      `${backendBase}/${cleanPath}`, // Direct static file: /uploads/courses/image.webp
+      `${backendBase}/api/images/${pathWithoutUploads}`, // API endpoint: /api/images/courses/image.webp
+      `${backendBase}/api/files/${pathWithoutUploads}`, // Files API: /api/files/courses/image.webp
     ]
     
     // Debug logging in development
