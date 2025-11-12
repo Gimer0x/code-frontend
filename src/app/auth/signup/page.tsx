@@ -16,34 +16,82 @@ function SignUpForm() {
   const searchParams = useSearchParams()
   const returnUrl = searchParams?.get('returnUrl') || '/'
 
+  // Validate password complexity (matches backend requirements)
+  const validatePassword = (pwd: string): string | null => {
+    if (pwd.length < 8) {
+      return 'Password must be at least 8 characters'
+    }
+    if (!/[A-Z]/.test(pwd)) {
+      return 'Password must contain at least one uppercase letter'
+    }
+    if (!/[a-z]/.test(pwd)) {
+      return 'Password must contain at least one lowercase letter'
+    }
+    if (!/[0-9]/.test(pwd)) {
+      return 'Password must contain at least one number'
+    }
+    if (!/[^A-Za-z0-9]/.test(pwd)) {
+      return 'Password must contain at least one special character'
+    }
+    return null
+  }
+
+  // Format error message from backend
+  const formatErrorMessage = (error: string | undefined): string => {
+    if (!error) return 'Registration failed'
+    
+    // Handle specific backend error codes
+    if (error.includes('USER_EXISTS') || error.toLowerCase().includes('already exists')) {
+      return 'An account with this email already exists. Please sign in instead.'
+    }
+    if (error.includes('WEAK_PASSWORD') || error.toLowerCase().includes('weak password')) {
+      return 'Password is too weak. Please use a stronger password.'
+    }
+    if (error.includes('INVALID_EMAIL') || error.toLowerCase().includes('invalid email')) {
+      return 'Please enter a valid email address.'
+    }
+    
+    return error
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
 
+    // Validate password match
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       setIsLoading(false)
       return
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+    // Validate password complexity
+    const passwordError = validatePassword(password)
+    if (passwordError) {
+      setError(passwordError)
       setIsLoading(false)
       return
     }
 
     try {
+      // Prepare request body (name is optional)
+      const requestBody: { email: string; password: string; name?: string } = {
+        email: email.trim(),
+        password,
+      }
+      
+      // Only include name if provided
+      if (name.trim()) {
+        requestBody.name = name.trim()
+      }
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       const data = await response.json()
@@ -51,7 +99,7 @@ function SignUpForm() {
       if (response.ok) {
         // Auto sign in after successful registration
         const result = await signIn('credentials', {
-          email,
+          email: email.trim(),
           password,
           redirect: false,
         })
@@ -64,9 +112,11 @@ function SignUpForm() {
           setError('Registration successful. Please sign in.')
         }
       } else {
-        setError(data.error || 'Registration failed')
+        // Format and display backend error message
+        setError(formatErrorMessage(data.error || data.message))
       }
     } catch (error) {
+      console.error('Registration error:', error)
       setError('An error occurred. Please try again.')
     } finally {
       setIsLoading(false)
@@ -122,14 +172,13 @@ function SignUpForm() {
           <div className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Full name
+                Full name <span className="text-gray-500 text-xs">(optional)</span>
               </label>
               <input
                 id="name"
                 name="name"
                 type="text"
                 autoComplete="name"
-                required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-700 rounded-md focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 focus:z-10 sm:text-sm"
@@ -169,6 +218,9 @@ function SignUpForm() {
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-700 rounded-md focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 focus:z-10 sm:text-sm"
                 placeholder="Create a password"
               />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Must be at least 8 characters with uppercase, lowercase, number, and special character
+              </p>
             </div>
 
             <div>
