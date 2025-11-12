@@ -2,7 +2,55 @@ class DappDojoAPI {
   private baseURL: string;
   private inFlight: Map<string, Promise<any>> = new Map()
   private cache: Map<string, { data: any; expiresAt: number }> = new Map()
-  private defaultTtlMs = 10_000 // 10s cache for GETs
+  private defaultTtlMs = 30_000 // 30s cache for GETs to reduce requests
+  private rateLimitCooldown: Map<string, number> = new Map() // Track rate limit cooldowns per endpoint
+
+  // Get cooldown from localStorage (persists across Fast Refresh)
+  private getCooldownFromStorage(url: string): number | null {
+    if (typeof window === 'undefined') return null
+    try {
+      const key = `rateLimitCooldown:${url}`
+      const stored = localStorage.getItem(key)
+      if (stored) {
+        const cooldownEnd = parseInt(stored, 10)
+        if (cooldownEnd > Date.now()) {
+          return cooldownEnd
+        } else {
+          // Cooldown expired, remove from storage
+          localStorage.removeItem(key)
+        }
+      }
+    } catch (e) {
+      // localStorage might not be available
+    }
+    return null
+  }
+
+  // Set cooldown in both memory and localStorage
+  private setCooldown(url: string, cooldownEnd: number): void {
+    this.rateLimitCooldown.set(url, cooldownEnd)
+    if (typeof window !== 'undefined') {
+      try {
+        const key = `rateLimitCooldown:${url}`
+        localStorage.setItem(key, cooldownEnd.toString())
+      } catch (e) {
+        // localStorage might not be available
+      }
+    }
+  }
+
+  // Clear cooldown from both memory and localStorage
+  private clearCooldown(url: string): void {
+    this.rateLimitCooldown.delete(url)
+    if (typeof window !== 'undefined') {
+      try {
+        const key = `rateLimitCooldown:${url}`
+        localStorage.removeItem(key)
+      } catch (e) {
+        // localStorage might not be available
+      }
+    }
+  }
 
   constructor(baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || '') {
     this.baseURL = baseURL;
@@ -22,6 +70,22 @@ class DappDojoAPI {
       }
     }
 
+    // Check rate limit cooldown BEFORE making request (check both memory and localStorage)
+    let cooldownEnd = this.rateLimitCooldown.get(url)
+    if (!cooldownEnd || cooldownEnd <= Date.now()) {
+      // Check localStorage in case Fast Refresh cleared memory
+      const storedCooldown = this.getCooldownFromStorage(url)
+      if (storedCooldown) {
+        cooldownEnd = storedCooldown
+        this.rateLimitCooldown.set(url, cooldownEnd)
+      }
+    }
+    
+    if (cooldownEnd && cooldownEnd > Date.now()) {
+      const remainingMs = cooldownEnd - Date.now()
+      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(remainingMs / 1000)} seconds before trying again.`)
+    }
+
     // In-flight de-duplication
     const inflightKey = `${method}:${url}:${isGet ? '' : (options.body ? String(options.body) : '')}`
     if (this.inFlight.has(inflightKey)) {
@@ -37,20 +101,26 @@ class DappDojoAPI {
     };
 
     const exec = async () => {
+
       const response = await fetch(url, config);
-      // Handle 429 backoff once
+      
+      // Handle 429 - don't retry automatically, just throw error and set cooldown
       if (response.status === 429) {
         const retryAfter = Number(response.headers.get('retry-after'))
-        const delayMs = isNaN(retryAfter) ? 1000 : Math.min(retryAfter * 1000, 3000)
-        await new Promise(res => setTimeout(res, delayMs))
-        const retryResp = await fetch(url, config)
-        const retryData = await retryResp.json().catch(() => ({}))
-        if (!retryResp.ok) {
-          throw new Error(retryData.error || `Request failed with status ${retryResp.status}`)
+        // Set cooldown period: use retry-after header if available, otherwise default to 60 seconds
+        const cooldownMs = isNaN(retryAfter) || retryAfter === 0 ? 60_000 : Math.min(retryAfter * 1000, 120_000)
+        const cooldownEnd = Date.now() + cooldownMs
+        this.setCooldown(url, cooldownEnd)
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`Rate limited (429). Cooldown set for ${Math.ceil(cooldownMs / 1000)} seconds.`)
         }
-        if (isGet) this.cache.set(cacheKey, { data: retryData, expiresAt: Date.now() + this.defaultTtlMs })
-        return retryData
+        
+        throw new Error('Rate limit exceeded. Please wait a moment and try again.')
       }
+      
+      // Clear cooldown if request succeeded
+      this.clearCooldown(url)
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {

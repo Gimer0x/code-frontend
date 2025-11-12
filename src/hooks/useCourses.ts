@@ -56,9 +56,13 @@ export const useCourses = (
       setCourses(response.courses || []);
       setPagination(response.pagination || null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch courses');
-      setCourses([]);
-      setPagination(null);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch courses';
+      setError(errorMessage);
+      // Don't clear courses on rate limit error - keep showing cached data if available
+      if (!errorMessage.includes('Rate limit')) {
+        setCourses([]);
+        setPagination(null);
+      }
     } finally {
       setLoading(false);
     }
