@@ -111,7 +111,7 @@ function CoursesPageContent() {
                 <p className="text-gray-500 dark:text-gray-400 text-sm">{error}</p>
               </div>
             ) : courses.length > 0 ? (
-              courses.map((course) => {
+              [...courses].reverse().map((course) => {
                 const getCourseIcon = (title: string) => {
                   if (title.toLowerCase().includes('solidity')) return '🔧'
                   if (title.toLowerCase().includes('security')) return '🔒'
@@ -187,13 +187,23 @@ function CoursesPageContent() {
                       
                       {/* Start Course Button */}
                       <div className="flex justify-end">
-                        <button 
-                          onClick={() => handleStartCourse(course.id)}
-                          disabled={authLoading}
-                          className="bg-yellow-500 text-black px-4 py-2 rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {authLoading ? 'Loading...' : 'Start Course'}
-                        </button>
+                        {(() => {
+                          const isSolidity101 = course.title.toLowerCase().includes('solidity 101')
+                          const isDisabled = authLoading || !isSolidity101
+                          return (
+                            <button 
+                              onClick={() => handleStartCourse(course.id)}
+                              disabled={isDisabled}
+                              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                                isDisabled 
+                                  ? 'bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed' 
+                                  : 'bg-yellow-500 text-black hover:bg-yellow-600'
+                              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                              {authLoading ? 'Loading...' : isSolidity101 ? 'Start Course' : 'Coming Soon'}
+                            </button>
+                          )
+                        })()}
                       </div>
                     </div>
                   </div>

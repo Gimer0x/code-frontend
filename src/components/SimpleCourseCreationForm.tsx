@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAdminAuth } from '@/contexts/AdminAuthContext'
 import { authService } from '@/lib/auth-service'
 import CourseThumbnailUpload from './CourseThumbnailUpload'
 
@@ -32,7 +32,7 @@ export default function SimpleCourseCreationForm({
   onSuccess, 
   onCancel 
 }: CourseCreationFormProps) {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAdminAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
@@ -93,7 +93,8 @@ export default function SimpleCourseCreationForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!user || user.role !== 'ADMIN') {
+    // Check if user is admin using AdminAuthContext
+    if (!user || !isAdmin) {
       setError('Only administrators can create courses')
       return
     }

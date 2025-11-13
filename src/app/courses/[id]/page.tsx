@@ -194,7 +194,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
           
           <div className="border-t border-gray-600 mt-8 pt-8 text-center">
             <p className="text-gray-400">
-              © 2024 DappDojo. All rights reserved.
+              © 2025 DappDojo. All rights reserved.
             </p>
           </div>
         </div>

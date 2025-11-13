@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/jwt-auth'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 
@@ -45,27 +46,67 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify admin authentication
-    const authResult = await requireAdmin(request)
+    // Get backend token from Authorization header (prioritize this for AdminAuthContext)
+    const authHeader = request.headers.get('authorization')
+    let backendToken: string | null = null
     
-    if (!authResult.success) {
+    if (authHeader?.startsWith('Bearer ')) {
+      backendToken = authHeader.substring(7)
+    } else {
+      // Fallback: try to get from NextAuth session
+      const session = await getServerSession(authOptions)
+      const sessionAny = session as any
+      if (sessionAny?.backendAccessToken) {
+        backendToken = sessionAny.backendAccessToken
+      }
+    }
+    
+    if (!backendToken) {
       return NextResponse.json({ 
         success: false,
-        error: authResult.error || 'Admin access required' 
+        error: 'Authentication required' 
       }, { status: 401 })
     }
 
+    // Always verify admin status via backend to ensure accuracy
+    // This handles cases where AdminAuthContext uses localStorage tokens
+    let isAdmin = false
+    try {
+      const profileResponse = await fetch(`${BACKEND_URL}/api/auth/profile`, {
+        headers: {
+          'Authorization': `Bearer ${backendToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (profileResponse.ok) {
+        const profileData = await profileResponse.json()
+        if (profileData.success && profileData.user?.role === 'ADMIN') {
+          isAdmin = true
+        }
+      } else {
+        // If profile check fails, log for debugging
+        console.warn('[API /api/courses] Profile check failed:', profileResponse.status)
+      }
+    } catch (error) {
+      console.error('[API /api/courses] Error verifying admin status:', error)
+    }
+
+    if (!isAdmin) {
+      return NextResponse.json({ 
+        success: false,
+        error: 'Admin access required' 
+      }, { status: 403 })
+    }
+
     const body = await request.json()
-    
-    // Get the Authorization header from the original request
-    const authHeader = request.headers.get('authorization')
         
-    // Forward request to backend with Authorization header
+    // Forward request to backend with backend token
     const backendResponse = await fetch(`${BACKEND_URL}/api/courses`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(authHeader && { 'Authorization': authHeader })
+        'Authorization': `Bearer ${backendToken}`
       },
       body: JSON.stringify(body),
     })
