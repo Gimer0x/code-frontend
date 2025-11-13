@@ -31,6 +31,12 @@ export default function Navigation() {
           
           <div className="flex items-center space-x-4">
             <Link
+              href="/courses"
+              className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+            >
+              All Courses
+            </Link>
+            <Link
               href="/pricing"
               className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
             >

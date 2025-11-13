@@ -94,10 +94,7 @@ export default function Home() {
             <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-4xl mx-auto">
               Learn by doing, stop tutorials, it&apos;s time to get your hands dirty!
             </p>
-            
-            <p className="text-lg text-gray-700 dark:text-gray-400 mb-12 max-w-3xl mx-auto">
-              Find hundreds of guided exercises to create smart contracts.
-            </p>
+            {/* call the course thumbnail here */}
 
             {/* Pricing Banner */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 max-w-2xl mx-auto mb-12">
@@ -120,7 +117,7 @@ export default function Home() {
         {/* Course Preview Section */}
         <section className="py-20 bg-white dark:bg-gray-900">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-bold text-gray-800 dark:text-white text-center mb-12">
+            <h2 className="text-4xl font-bold text-gray-800 dark:text-white text-center mb-12">
               Available Courses
             </h2>
             
