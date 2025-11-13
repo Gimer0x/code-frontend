@@ -345,7 +345,7 @@ export default function LessonViewer({ lesson: initialLesson, courseId }: Lesson
                   </li>
                 ),
                 blockquote: ({ children }) => (
-                  <blockquote className="border-l-4 border-yellow-500 pl-4 py-2 mb-4 bg-yellow-50 text-gray-600 italic">
+                  <blockquote className="border-l-4 border-blue-500 pl-4 py-6 mb-4 bg-blue-50 dark:bg-blue-900/20 text-gray-800 dark:text-gray-200 italic flex items-center [&>p]:mb-0">
                     {children}
                   </blockquote>
                 ),
