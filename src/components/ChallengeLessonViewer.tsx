@@ -1269,7 +1269,7 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
                         </th>
                       ),
                       td: ({ children }) => (
-                        <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
+                        <td className="px-4 py-2 text-sm text-gray-800 dark:text-gray-100">
                           {children}
                         </td>
                       ),

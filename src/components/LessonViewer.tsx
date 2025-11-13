@@ -551,18 +551,18 @@ export default function LessonViewer({ lesson: initialLesson, courseId }: Lesson
                  },
                 table: ({ children }) => (
                   <div className="overflow-x-auto mb-4">
-                    <table className="min-w-full border border-gray-200 rounded-lg shadow-sm">
+                    <table className="min-w-full border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-800">
                       {children}
                     </table>
                   </div>
                 ),
                 th: ({ children }) => (
-                  <th className="bg-gray-50 border border-gray-200 px-4 py-2 text-left font-semibold text-gray-900">
+                  <th className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-4 py-2 text-left font-semibold text-gray-900 dark:text-white">
                     {children}
                   </th>
                 ),
                 td: ({ children }) => (
-                  <td className="border border-gray-200 px-4 py-2 text-gray-600">
+                  <td className="border border-gray-200 px-4 py-2 text-gray-800 dark:text-gray-100">
                     {children}
                   </td>
                 ),
