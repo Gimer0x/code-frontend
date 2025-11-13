@@ -36,16 +36,47 @@ export default function Home() {
     totalLessons: course._count.modules // We'll calculate this properly when we have lesson counts
   }))
 
-  const handleStartCourse = (courseId: string) => {
+  const handleStartCourse = async (courseId: string) => {
     // If not authenticated, redirect to sign-in with callback URL
     if (!authLoading && !isAuthenticated) {
       router.push(`/auth/signin?callbackUrl=${encodeURIComponent(`/courses/${courseId}`)}`)
       return
     }
     
-    // If authenticated, navigate to course
+    // If authenticated, enroll in the course and then navigate
     if (isAuthenticated) {
-      router.push(`/courses/${courseId}`)
+      try {
+        // Call the backend to start/enroll in the course
+        // This creates an initial StudentProgress record to attach the course to the user
+        const response = await fetch('/api/student/courses/start', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ courseId }),
+        })
+
+        const data = await response.json()
+
+        // Even if enrollment fails (e.g., already enrolled), still navigate to the course
+        // The user can still access the course
+        if (process.env.NODE_ENV === 'development') {
+          if (response.ok && data.success) {
+            console.log('[Start Course] Successfully enrolled in course:', courseId)
+          } else if (data.error) {
+            console.warn('[Start Course] Enrollment response:', data.error, '- Still navigating to course')
+          }
+        }
+
+        // Navigate to course regardless of enrollment result
+        // (The course might already be enrolled, or enrollment might fail silently)
+        router.push(`/courses/${courseId}`)
+      } catch (error) {
+        // If enrollment fails, still navigate to the course
+        // The user can still access it, and enrollment might happen on first save/compile
+        console.error('[Start Course] Error enrolling in course:', error)
+        router.push(`/courses/${courseId}`)
+      }
     }
   }
   return (
