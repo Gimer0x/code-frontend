@@ -1,0 +1,213 @@
+# Cursor AI Code Generation Rules for DappDojo Frontend
+
+## Security & Privacy Rules
+
+### NEVER Include in Code:
+- API keys, secrets, or authentication tokens
+- Private keys, wallet addresses, or seed phrases
+- Database connection strings with credentials
+- Environment variables with actual values (use placeholders like `process.env.API_KEY`)
+- Hardcoded passwords or sensitive user data
+- Internal URLs, IP addresses, or server configurations
+- Stripe keys, OAuth secrets, or any third-party service credentials
+- Email credentials or SMTP configurations
+- JWT secrets or signing keys
+
+### Security Best Practices:
+- Always use environment variables for sensitive configuration
+- Validate and sanitize all user inputs
+- Use TypeScript types to prevent type-related vulnerabilities
+- Implement proper error handling without exposing internal details
+- Use secure authentication patterns (NextAuth.js, JWT)
+- Never log sensitive information in console or error messages
+- Use HTTPS for all external API calls
+- Implement rate limiting for API endpoints
+- Validate request origins and implement CORS properly
+
+## Code Reutilization Patterns
+
+### Component Reusability:
+- Create reusable components in `/src/components/` directory
+- Extract common UI patterns into shared components
+- Use composition over inheritance
+- Create base components that can be extended with props
+- Share common hooks in `/src/hooks/` directory
+- Extract utility functions to `/src/lib/` directory
+
+### DRY (Don't Repeat Yourself):
+- Extract repeated logic into custom hooks
+- Create utility functions for common operations
+- Use shared types/interfaces from `/src/types/` when applicable
+- Reuse API client patterns from `/src/lib/api.ts`
+- Share validation schemas (Zod) across the codebase
+- Extract common form patterns into reusable form components
+
+### Code Organization:
+- Follow the existing project structure:
+  - `/src/app/` - Next.js app router pages
+  - `/src/components/` - Reusable React components
+  - `/src/lib/` - Utility functions and services
+  - `/src/hooks/` - Custom React hooks
+  - `/src/contexts/` - React contexts
+  - `/src/types/` - TypeScript type definitions
+- Group related functionality together
+- Use index files for clean imports when appropriate
+
+## Software Development Best Practices
+
+### TypeScript:
+- Always use TypeScript with strict type checking
+- Avoid `any` types - use proper types or `unknown` when necessary
+- Define interfaces/types for all data structures
+- Use type guards for runtime type checking
+- Leverage TypeScript utility types (Partial, Pick, Omit, etc.)
+- Use discriminated unions for complex state management
+
+### React/Next.js Patterns:
+- Use functional components with hooks (no class components)
+- Implement proper error boundaries
+- Use React.memo() for expensive components when needed
+- Prefer server components when possible (Next.js 15)
+- Use client components only when necessary (interactivity, hooks, browser APIs)
+- Implement proper loading states and error handling
+- Use Suspense boundaries for async operations
+- Follow Next.js 15 app router conventions
+
+### Code Quality:
+- Write self-documenting code with clear variable/function names
+- Add JSDoc comments for complex functions
+- Keep functions small and focused (single responsibility)
+- Use early returns to reduce nesting
+- Handle edge cases and error scenarios
+- Implement proper logging (without sensitive data)
+- Use consistent code formatting (Prettier/ESLint)
+
+### API & Data Fetching:
+- Use the existing API client patterns from `/src/lib/api.ts`
+- Implement proper error handling for API calls
+- Use TypeScript types for API request/response
+- Handle loading, error, and success states
+- Implement request deduplication when appropriate
+- Use proper HTTP status codes
+- Validate API responses with Zod schemas when possible
+
+### State Management:
+- Use React Context for global state (AuthContext, AdminAuthContext)
+- Use local state (useState) for component-specific state
+- Use custom hooks for complex state logic
+- Avoid prop drilling - use context or composition
+- Implement optimistic updates when appropriate
+
+### Performance:
+- Lazy load heavy components
+- Use Next.js Image component for images
+- Implement code splitting for routes
+- Optimize bundle size (check imports)
+- Use React.useMemo() and React.useCallback() appropriately
+- Avoid unnecessary re-renders
+
+### Testing Considerations:
+- Write testable code (pure functions, dependency injection)
+- Keep business logic separate from UI components
+- Make components easily mockable
+- Use descriptive test names
+
+### Error Handling:
+- Always handle errors gracefully
+- Provide user-friendly error messages
+- Log errors appropriately (without sensitive data)
+- Use try-catch blocks for async operations
+- Implement proper error boundaries
+- Return meaningful error responses from API routes
+
+### Accessibility:
+- Use semantic HTML elements
+- Include proper ARIA labels when needed
+- Ensure keyboard navigation works
+- Maintain proper color contrast
+- Use proper form labels and error messages
+
+## Project-Specific Patterns
+
+### Authentication:
+- Use NextAuth.js for authentication
+- Check authentication in API routes using `getServerSession`
+- Use `AdminRoute` component for admin-only pages
+- Implement proper session management
+- Handle token refresh and expiration
+
+### API Routes:
+- Follow RESTful conventions
+- Use proper HTTP methods (GET, POST, PUT, DELETE)
+- Return consistent response formats
+- Implement proper status codes
+- Validate request bodies with Zod
+- Handle CORS properly
+
+### Styling:
+- Use Tailwind CSS for styling
+- Follow existing design patterns
+- Use consistent spacing and typography
+- Implement responsive design (mobile-first)
+- Use dark mode support when applicable
+
+### Code Editor Integration:
+- Follow patterns from existing code editors (CodeMirror, ACE)
+- Implement auto-save functionality
+- Handle syntax highlighting properly
+- Support multiple file editing when needed
+
+### Course/Lesson Management:
+- Follow existing patterns from course management components
+- Use proper TypeScript types for course/lesson data
+- Implement proper progress tracking
+- Handle student code persistence
+
+## Code Generation Guidelines
+
+### When Creating New Features:
+1. Check existing components/hooks for reusable code
+2. Follow the established patterns in the codebase
+3. Use existing utility functions from `/src/lib/`
+4. Maintain consistency with existing code style
+5. Add proper TypeScript types
+6. Implement error handling
+7. Add loading states where appropriate
+
+### When Modifying Existing Code:
+1. Understand the existing pattern before changing it
+2. Maintain backward compatibility when possible
+3. Update related code if breaking changes are needed
+4. Preserve existing functionality
+5. Follow the same code style and patterns
+
+### When Fixing Bugs:
+1. Identify the root cause, not just symptoms
+2. Fix the issue without breaking existing functionality
+3. Add proper error handling to prevent similar issues
+4. Consider edge cases that might cause the bug
+
+## Code Review Checklist
+
+Before generating code, ensure:
+- [ ] No secrets or sensitive data in code
+- [ ] Proper TypeScript types are used
+- [ ] Error handling is implemented
+- [ ] Code follows existing patterns
+- [ ] Reusable code is extracted to appropriate locations
+- [ ] Performance considerations are addressed
+- [ ] Accessibility is maintained
+- [ ] Code is properly formatted and linted
+
+## Additional Notes
+
+- This is a Next.js 15 project with TypeScript
+- Uses React 18.3.1
+- Authentication via NextAuth.js
+- Styling with Tailwind CSS
+- API communication via RESTful endpoints
+- Code compilation/testing via Foundry service
+- Payment processing via Stripe
+
+When in doubt, follow the existing codebase patterns and maintain consistency.
+
