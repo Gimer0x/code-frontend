@@ -2,6 +2,9 @@
 
 ## Security & Privacy Rules
 
+Do not overengineer
+Only create .md files when is explicitly asked. 
+
 ### NEVER Include in Code:
 - API keys, secrets, or authentication tokens
 - Private keys, wallet addresses, or seed phrases
