@@ -821,17 +821,27 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
 
   // Use progress from useStudentProgress hook to avoid duplicate requests
   useEffect(() => {
-    // Priority 1: Use saved code if available
-    if (studentProgress?.codeContent) {
-      setCode(studentProgress.codeContent)
-      lastSavedCodeRef.current = studentProgress.codeContent
-      setLoadedFromDB(true)
-      setIsLoadingCode(false)
-      return
+    // Priority 1: Use saved code from files array if available
+    if (studentProgress?.files && Array.isArray(studentProgress.files) && studentProgress.files.length > 0) {
+      // Find the main .sol file (isMain: true) or first .sol file
+      const mainFile = studentProgress.files.find((f: any) => 
+        f.isMain && (f.fileName?.endsWith('.sol') || f.filePath?.endsWith('.sol'))
+      ) || studentProgress.files.find((f: any) => 
+        f.fileName?.endsWith('.sol') || f.filePath?.endsWith('.sol')
+      ) || studentProgress.files[0]
+      
+      const savedCode = mainFile?.content || mainFile?.code || ''
+      if (savedCode && savedCode.trim().length > 0) {
+        setCode(savedCode)
+        lastSavedCodeRef.current = savedCode
+        setLoadedFromDB(true)
+        setIsLoadingCode(false)
+        return
+      }
     }
 
     // Priority 2: If no saved code and hook is done loading, use initial code immediately
-    if (!progressLoading && !studentProgress) {
+    if (!progressLoading && (!studentProgress || !studentProgress.files || studentProgress.files.length === 0)) {
       // No artificial delay - use initial code right away
       const initialCode = lesson.initialCode || getDefaultSolidityTemplate()
       setCode(initialCode)
