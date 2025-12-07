@@ -115,6 +115,19 @@ export default function LessonPage({ params }: { params: Promise<{ id: string; m
     notFound()
   }
 
+  // Additional guard to ensure lesson is loaded before accessing properties
+  // This prevents race conditions in React Strict Mode or rapid re-renders
+  if (!lesson || !lesson.id) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading lesson...</p>
+        </div>
+      </div>
+    )
+  }
+
   // Compute navigation from module lessons
   const currentIndex = moduleLessons.findIndex(l => l.id === lesson.id)
   const navigation = {
