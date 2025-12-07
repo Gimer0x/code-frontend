@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { getTokens } from '@/lib/apiClient'
 
@@ -32,6 +33,7 @@ export default function ModuleLessonsList({
   courseId: string
   modules: Module[]
 }) {
+  const router = useRouter()
   const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set<string>(modules.length ? [modules[0].id] : []))
   const [subscription, setSubscription] = React.useState<Subscription | null>(null)
   const [loadingSubscription, setLoadingSubscription] = React.useState(true)
@@ -117,6 +119,37 @@ export default function ModuleLessonsList({
     return moduleIndex === 0 // Free users can only access first module
   }
 
+  // Prefetch lesson data and progress on click
+  const handleLessonClick = React.useCallback((e: React.MouseEvent, moduleId: string, lessonId: string) => {
+    const lessonPath = `/courses/${courseId}/modules/${moduleId}/lessons/${lessonId}`
+    
+    // Prefetch the route (Next.js will cache it)
+    router.prefetch(lessonPath)
+    
+    // Prefetch lesson API data in parallel
+    const lessonApiPromise = fetch(`/api/lessons/${lessonId}`).catch(() => null)
+    
+    // Prefetch student progress in parallel (if user is logged in)
+    const sessionAny = session as any
+    const { accessToken } = getTokens()
+    const authToken = accessToken || sessionAny?.backendAccessToken
+    
+    const progressApiPromise = authToken
+      ? fetch(`/api/student/progress?courseId=${courseId}&lessonId=${lessonId}`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+          },
+        }).catch(() => null)
+      : Promise.resolve(null)
+    
+    // Fire both requests in parallel (don't wait for them)
+    Promise.all([lessonApiPromise, progressApiPromise]).catch(() => {
+      // Silently fail - prefetch is best effort
+    })
+    
+    // Let the Link navigation proceed normally
+  }, [courseId, router, session])
+
   return (
     <div className="space-y-4">
       {modules.map((module, index) => {
@@ -195,6 +228,7 @@ export default function ModuleLessonsList({
                           key={lesson.id}
                           href={`/courses/${courseId}/modules/${module.id}/lessons/${lesson.id}`}
                           className="block hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors rounded"
+                          onClick={(e) => handleLessonClick(e, module.id, lesson.id)}
                         >
                           {lessonContent}
                         </Link>

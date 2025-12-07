@@ -821,7 +821,7 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
 
   // Use progress from useStudentProgress hook to avoid duplicate requests
   useEffect(() => {
-    // Use progress from hook - don't fetch again
+    // Priority 1: Use saved code if available
     if (studentProgress?.codeContent) {
       setCode(studentProgress.codeContent)
       lastSavedCodeRef.current = studentProgress.codeContent
@@ -830,18 +830,15 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
       return
     }
 
-    // Only fetch if hook doesn't have progress yet AND it's not loading
+    // Priority 2: If no saved code and hook is done loading, use initial code immediately
     if (!progressLoading && !studentProgress) {
-      // Wait a bit for the hook to fetch, then use initial code
-      const timer = setTimeout(() => {
-        const initialCode = lesson.initialCode || getDefaultSolidityTemplate()
-        setCode(initialCode)
-        lastSavedCodeRef.current = initialCode
-        setLoadedFromDB(false)
-        setIsLoadingCode(false)
-      }, 500) // Wait 500ms for hook to fetch
-
-      return () => clearTimeout(timer)
+      // No artificial delay - use initial code right away
+      const initialCode = lesson.initialCode || getDefaultSolidityTemplate()
+      setCode(initialCode)
+      lastSavedCodeRef.current = initialCode
+      setLoadedFromDB(false)
+      setIsLoadingCode(false)
+      return
     }
     
     // If hook is still loading, keep loading state
