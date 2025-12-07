@@ -2,17 +2,22 @@
 
 import React from 'react'
 import { notFound } from 'next/navigation'
-import { useLesson } from '@/hooks/useLesson'
+import { useSession } from 'next-auth/react'
 import LessonViewer from '@/components/LessonViewer'
 import ChallengeLessonViewer from '@/components/ChallengeLessonViewer'
 import { api } from '@/lib/api'
+import { getTokens } from '@/lib/apiClient'
 
 export default function LessonPage({ params }: { params: Promise<{ id: string; moduleId: string; lessonId: string }> }) {
   const [lessonId, setLessonId] = React.useState<string | null>(null)
   const [courseId, setCourseId] = React.useState<string | null>(null)
   const [moduleId, setModuleId] = React.useState<string | null>(null)
-  const { lesson, loading, error } = useLesson(lessonId || '')
+  const [lesson, setLesson] = React.useState<any>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+  const [progressData, setProgressData] = React.useState<any>(null)
   const [moduleLessons, setModuleLessons] = React.useState<Array<{ id: string; title: string; type: string; order: number }>>([])
+  const { data: session } = useSession()
 
   React.useEffect(() => {
     params.then(({ id, moduleId, lessonId }) => {
@@ -21,6 +26,63 @@ export default function LessonPage({ params }: { params: Promise<{ id: string; m
       setLessonId(lessonId)
     })
   }, [params])
+
+  // Fetch lesson and progress data in parallel
+  React.useEffect(() => {
+    const fetchData = async () => {
+      if (!lessonId || !courseId) return
+
+      setLoading(true)
+      setError(null)
+
+      try {
+        // Check if user is authenticated for progress API
+        const sessionAny = session as any
+        const { accessToken } = getTokens()
+        const authToken = accessToken || sessionAny?.backendAccessToken
+
+        // Fetch lesson and progress in parallel
+        const promises: Promise<any>[] = [
+          api.getLesson(lessonId).catch(err => {
+            throw new Error('Failed to fetch lesson')
+          })
+        ]
+
+        // Only fetch progress if user is authenticated and it's a challenge lesson
+        // We'll check lesson type after lesson loads, but we can start the request
+        if (authToken) {
+          promises.push(
+            api.getStudentProgress(courseId, lessonId, authToken).catch(() => {
+              // Progress fetch failure is not critical - return null
+              return null
+            })
+          )
+        } else {
+          promises.push(Promise.resolve(null))
+        }
+
+        const [lessonResponse, progressResponse] = await Promise.all(promises)
+
+        // Set lesson data
+        if (lessonResponse?.lesson) {
+          setLesson(lessonResponse.lesson)
+        } else {
+          throw new Error('Lesson not found')
+        }
+
+        // Set progress data (only for challenge lessons, but we fetch it anyway)
+        if (progressResponse) {
+          setProgressData(progressResponse)
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch lesson')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [lessonId, courseId, session])
 
   React.useEffect(() => {
     const fetchModuleLessons = async () => {
@@ -92,7 +154,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string; m
 
   // Use ChallengeLessonViewer for challenge lessons, LessonViewer for others
   if (lesson.type?.toLowerCase() === 'challenge') {
-    return <ChallengeLessonViewer lesson={lessonData} courseId={courseId} />
+    return <ChallengeLessonViewer lesson={lessonData} courseId={courseId} initialProgress={progressData} />
   }
   
   return <LessonViewer lesson={lessonData} courseId={courseId} />

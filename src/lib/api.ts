@@ -239,6 +239,38 @@ class DappDojoAPI {
     return response.json();
   }
 
+  // Student progress methods
+  async getStudentProgress(courseId: string, lessonId?: string, authToken?: string) {
+    const params = new URLSearchParams({ courseId });
+    if (lessonId) params.append('lessonId', lessonId);
+    
+    // Use frontend API route which handles authentication
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add auth token if provided (for client-side calls)
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    
+    const response = await fetch(`/api/student/progress?${params}`, {
+      method: 'GET',
+      headers,
+    });
+    
+    if (!response.ok) {
+      // 404 is acceptable (no progress yet)
+      if (response.status === 404) {
+        return { success: true, files: [], isCompleted: false };
+      }
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || `Request failed with status ${response.status}`);
+    }
+    
+    return response.json();
+  }
+
   // Helper method to get image URL (direct backend URL)
   getImageUrl(thumbnail: string | null): string | null {
     if (!thumbnail) return null;

@@ -45,6 +45,7 @@ interface ChallengeLessonViewerProps {
   lesson: Lesson
   courseId: string
   session?: any
+  initialProgress?: any // Progress data fetched before component mount
 }
 
 // Helper function to get default Solidity template
@@ -57,7 +58,7 @@ contract Challenge {
 }`
 }
 
-export default function ChallengeLessonViewer({ lesson, courseId, session }: ChallengeLessonViewerProps) {
+export default function ChallengeLessonViewer({ lesson, courseId, session, initialProgress }: ChallengeLessonViewerProps) {
   const router = useRouter()
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false)
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false)
@@ -112,7 +113,8 @@ export default function ChallengeLessonViewer({ lesson, courseId, session }: Cha
     courseId,
     lessonId: lesson.id,
     autoSave: false,
-    autoSaveDelay: 3000
+    autoSaveDelay: 3000,
+    initialData: initialProgress // Pass initial progress data fetched in parallel
   }) as any // Type assertion to include handleAutoSave
   const [isLoading, setIsLoading] = useState(false)
   

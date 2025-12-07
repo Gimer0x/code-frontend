@@ -57,6 +57,7 @@ interface UseStudentProgressOptions {
   lessonId?: string
   autoSave?: boolean
   autoSaveDelay?: number
+  initialData?: any | null // Can be raw API response or ProgressData
 }
 
 interface UseStudentProgressReturn {
@@ -70,16 +71,55 @@ interface UseStudentProgressReturn {
   isSaving: boolean
 }
 
+// Helper function to transform API response to ProgressData
+const transformProgressData = (data: any, lessonId?: string): ProgressData | null => {
+  if (!data?.success) {
+    return null
+  }
+
+  const files: StudentFile[] = (data.files && Array.isArray(data.files))
+    ? data.files.map((f: any) => ({
+        id: f.id || '',
+        fileName: f.fileName || f.name || '',
+        filePath: f.filePath || f.path || '',
+        content: f.content || f.code || '',
+        fileType: f.fileType || f.type || '',
+        isMain: f.isMain || false
+      }))
+    : []
+
+  return {
+    id: 'temp',
+    isCompleted: data.isCompleted || false,
+    lastSavedAt: data.lastSavedAt || null,
+    completedAt: data.completedAt || null,
+    files,
+    lesson: {
+      id: lessonId || '',
+      title: data.lesson?.title || '',
+      type: data.lesson?.type || '',
+      order: data.lesson?.order || 0
+    },
+    compilationResults: data.lastCompilation ? [data.lastCompilation] : [],
+    testResults: data.lastTest ? [data.lastTest] : []
+  }
+}
+
 export function useStudentProgress({
   courseId,
   lessonId,
   autoSave = false,
-  autoSaveDelay = 2000
+  autoSaveDelay = 2000,
+  initialData = null
 }: UseStudentProgressOptions): UseStudentProgressReturn {
   const { data: session } = useSession()
-  const [progress, setProgress] = useState<ProgressData | null>(null)
-  const [statistics, setStatistics] = useState<ProgressStatistics | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  
+  // Transform initialData if it's in API response format
+  const transformedInitialData = initialData ? transformProgressData(initialData, lessonId) : null
+  
+  const [progress, setProgress] = useState<ProgressData | null>(transformedInitialData)
+  const [statistics, setStatistics] = useState<ProgressStatistics | null>(initialData?.statistics || null)
+  const [isLoading, setIsLoading] = useState(!transformedInitialData)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null)
@@ -366,6 +406,12 @@ export function useStudentProgress({
 
   // Initial fetch - only run when user ID, courseId, or lessonId changes
   useEffect(() => {
+    if (initialData) {
+      // If initialData is provided, we don't need to fetch immediately
+      // The state is already initialized.
+      return
+    }
+
     if (!session?.user?.id) {
       return
     }
@@ -394,7 +440,7 @@ export function useStudentProgress({
       hasFetchedRef.current = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id, courseId, lessonId]) // Only depend on these values, not fetchProgress
+  }, [session?.user?.id, courseId, lessonId, initialData]) // Only depend on these values, not fetchProgress
 
   return {
     progress,
