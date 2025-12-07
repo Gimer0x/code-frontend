@@ -19,14 +19,6 @@ export class EmailService {
     // Simulate email sending delay
     await new Promise(resolve => setTimeout(resolve, 100))
     
-    // Log email details in development (for debugging)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Email Service] Simulated email send:', {
-        to,
-        subject,
-        htmlLength: html.length
-      })
-    }
     
     // Always return true (simulation)
     // In production, replace this with actual email sending logic

@@ -110,14 +110,6 @@ export function getCourseImageUrl(thumbnail: string | null | undefined): string 
   // Result: /api/images/uploads/courses/filename.webp
   const proxyUrl = `/api/images/${path}`
   
-  // Debug logging in development
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Course image URL constructed:', { 
-      original: thumbnail, 
-      normalized: path, 
-      proxyUrl
-    })
-  }
   
   return proxyUrl
 }

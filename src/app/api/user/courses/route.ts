@@ -37,9 +37,6 @@ export async function GET(request: NextRequest) {
     // This endpoint returns courses the user has started (has StudentProgress records)
     const endpoint = `${BACKEND_URL}/api/student/courses`
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[API /api/user/courses] Calling backend:', endpoint)
-    }
     
     const backendResponse = await fetch(endpoint, {
       method: 'GET',
@@ -80,18 +77,10 @@ export async function GET(request: NextRequest) {
 
     const data = await backendResponse.json()
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[API /api/user/courses] Backend response:', {
-        success: data.success,
-        coursesCount: data.courses?.length || 0,
-        total: data.total
-      })
-    }
     
     // Return the response as-is (backend already returns the correct format)
     return NextResponse.json(data)
   } catch (error) {
-    console.error('Error fetching user courses:', error)
     // Return empty array instead of error to show empty state
     return NextResponse.json(
       { 

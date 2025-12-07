@@ -32,9 +32,6 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Bootstrap admin auth from existing tokens
   const bootstrap = useCallback(async () => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('AdminAuth: Bootstrap - checking tokens', { hasTokens: authService.isAuthenticated() })
-    }
 
     if (!authService.isAuthenticated()) {
       setLoading(false)
@@ -47,22 +44,13 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
         // Only set user if they are admin
         if (data.user.role === 'ADMIN') {
           setUser(data.user as AdminUser)
-          if (process.env.NODE_ENV === 'development') {
-            console.log('AdminAuth: User loaded from tokens', { userRole: data.user.role, email: data.user.email })
-          }
         } else {
           // Not admin - clear tokens
           authService.logout()
-          if (process.env.NODE_ENV === 'development') {
-            console.log('AdminAuth: User is not admin, clearing tokens')
-          }
         }
       } else {
         // Profile fetch failed - clear tokens
         authService.logout()
-        if (process.env.NODE_ENV === 'development') {
-          console.log('AdminAuth: Profile fetch failed, clearing tokens')
-        }
       }
     } catch (error) {
       // Error fetching profile - clear tokens
@@ -91,16 +79,10 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
             // Only allow admin users
             if (profileData.user.role === 'ADMIN') {
               setUser(profileData.user as AdminUser)
-              if (process.env.NODE_ENV === 'development') {
-                console.log('AdminAuth: Login successful', { userRole: profileData.user.role, email: profileData.user.email })
-              }
               return { success: true, user: profileData.user as AdminUser }
             } else {
               // Not admin - clear tokens and return error
               authService.logout()
-              if (process.env.NODE_ENV === 'development') {
-                console.log('AdminAuth: Login failed - user is not admin')
-              }
               return { success: false, error: 'Admin access required. Please contact an administrator.' }
             }
           } else {
@@ -122,9 +104,6 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     authService.logout()
     setUser(null)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('AdminAuth: Logout')
-    }
   }
 
   const refreshUser = async () => {

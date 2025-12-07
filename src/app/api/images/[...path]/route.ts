@@ -53,10 +53,6 @@ export async function GET(
       `${backendBase}/api/files/${pathWithoutUploads}`, // Files API: /api/files/courses/image.webp
     ]
     
-    // Debug logging in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Image proxy request:', { originalPath: path, imagePath, tryingUrls: possibleUrls })
-    }
     
     // Try each URL until one works
     let response: Response | null = null
@@ -74,9 +70,6 @@ export async function GET(
         
         if (response.ok) {
           // Found the image, break out of loop
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Image found at:', imageUrl)
-          }
           break
         }
       } catch (error) {
@@ -91,16 +84,7 @@ export async function GET(
       if (!triedUrl) {
         triedUrl = possibleUrls[possibleUrls.length - 1]
       }
-      // Log the error for debugging
       const errorText = response ? await response.text().catch(() => 'Unable to read error response') : (lastError?.message || 'No response received')
-      console.error('Image proxy error:', {
-        status: response?.status || 'NO_RESPONSE',
-        statusText: response?.statusText || 'No response',
-        triedUrl,
-        imagePath,
-        originalPath: path,
-        error: typeof errorText === 'string' ? errorText.substring(0, 200) : String(errorText) // Limit error text length
-      })
       
       // If 404 or no response, return a more helpful error
       if (!response || response.status === 404) {

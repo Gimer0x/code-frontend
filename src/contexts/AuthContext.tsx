@@ -39,13 +39,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   // Wrapper to log when user is set/cleared
   const setUser = React.useCallback((newUser: User | null) => {
-    if (process.env.NODE_ENV === 'development') {
-      const stack = new Error().stack
-      console.log('setUser called:', {
-        newUser: newUser ? { role: newUser.role, email: newUser.email } : null,
-        stack: stack?.split('\n').slice(2, 5).join('\n')
-      })
-    }
     setUserState(newUser)
   }, [])
 
@@ -54,9 +47,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const userRef = React.useRef(user)
   useEffect(() => {
     userRef.current = user
-    if (process.env.NODE_ENV === 'development') {
-      console.log('userRef updated:', { user: user ? { role: user.role, email: user.email } : null })
-    }
   }, [user])
   
   const bootstrap = React.useCallback(async () => {
@@ -66,9 +56,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return // Wait for session to load
     }
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('UserAuth: Bootstrap - checking NextAuth session', { status })
-    }
     
     try {
       const currentSession: any = session
@@ -78,16 +65,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const data = await authService.getProfile()
         if (data.success) {
           setUser(data.user)
-          if (process.env.NODE_ENV === 'development') {
-            console.log('UserAuth: User loaded from NextAuth session', { userRole: data.user.role })
-          }
         }
       } else if (currentSession?.user) {
         // Session exists but no backend tokens - use NextAuth user data
         // This might happen if backend auth failed during sign-in
-        if (process.env.NODE_ENV === 'development') {
-          console.log('UserAuth: Using NextAuth user without backend tokens')
-        }
       }
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
@@ -110,9 +91,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else if (status === 'unauthenticated') {
       // No NextAuth session - clear user
       // Users authenticate via NextAuth, so if session is gone, user should be cleared
-      if (process.env.NODE_ENV === 'development') {
-        console.log('UserAuth: Session unauthenticated, clearing user')
-      }
       setUser(null)
       setLoading(false)
     }

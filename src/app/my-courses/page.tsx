@@ -43,20 +43,9 @@ export default function MyCoursesPage() {
       setLoading(true)
       setError(null)
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[MyCourses] Fetching user courses...')
-      }
       
       const response = await api.getUserCourses(1, 50) // Get up to 50 courses
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[MyCourses] API response:', {
-          success: response.success,
-          coursesCount: response.courses?.length || 0,
-          total: response.total,
-          courses: response.courses
-        })
-      }
       
       // Transform backend courses to match our interface
       // Backend returns courses with _count.modules and _count.lessons
@@ -72,15 +61,11 @@ export default function MyCoursesPage() {
         totalLessons: course._count?.lessons || 0, // Use _count.lessons from backend
       }))
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[MyCourses] Transformed courses:', transformedCourses)
-      }
       
       setCourses(transformedCourses)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch your courses'
       setError(errorMessage)
-      console.error('[MyCourses] Error fetching user courses:', err)
     } finally {
       setLoading(false)
     }
@@ -183,7 +168,6 @@ export default function MyCoursesPage() {
                           // Fallback to a simple placeholder if image fails to load
                           const target = e.target as HTMLImageElement
                           if (target.src && !target.src.includes('data:image')) {
-                            console.error('Failed to load course image:', course.thumbnail, 'Full URL:', api.getImageUrl(course.thumbnail))
                             // Use a simple SVG placeholder as data URL
                             target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" font-family="sans-serif" font-size="18" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EImage not available%3C/text%3E%3C/svg%3E'
                           }
