@@ -117,17 +117,59 @@ function PricingPageContent() {
         }),
       })
 
+      // Log response status for debugging
+      if (!response.ok) {
+        console.error('Subscription API error - Response not OK:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          headers: Object.fromEntries(response.headers.entries())
+        })
+      }
+
       let data
       try {
-        data = await response.json()
+        const responseText = await response.text()
+        // Log raw response for debugging
+        if (!response.ok || !responseText) {
+          console.error('Subscription API raw response:', {
+            status: response.status,
+            statusText: response.statusText,
+            body: responseText || '(empty)',
+            contentType: response.headers.get('content-type')
+          })
+        }
+        
+        // Try to parse JSON, but handle empty responses
+        if (!responseText || responseText.trim() === '') {
+          data = { success: false, error: `Server returned empty response (Status: ${response.status})`, code: 'SUBSCRIPTION_START_FAILED' }
+        } else {
+          data = JSON.parse(responseText)
+        }
       } catch (parseError) {
-        // If JSON parsing fails, get text response
+        // If JSON parsing fails, create error object
         const errorText = await response.text().catch(() => 'Unknown error')
-        setError(`Server error: ${errorText}`)
-        console.error('Failed to parse response:', errorText)
+        console.error('Failed to parse subscription response:', {
+          error: parseError,
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        })
+        setError(`Server error (${response.status}): ${errorText || 'Invalid response format'}`)
+        setLoading(null)
         return
       }
 
+      // Handle empty or malformed data
+      if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+        console.error('Empty or malformed subscription response:', {
+          status: response.status,
+          data: data
+        })
+        setError(`Server returned invalid response (Status: ${response.status}). Please try again or contact support.`)
+        setLoading(null)
+        return
+      }
 
       if (!data.success) {
         // Handle different error codes
@@ -144,10 +186,37 @@ function PricingPageContent() {
             setError('Authentication required. Please sign in again.')
             router.push('/auth/signin?callbackUrl=/pricing')
             break
+          case 'INVALID_PLAN':
+            setError(data.error || 'Invalid subscription plan selected. Please try again.')
+            break
+          case 'SUBSCRIPTION_START_FAILED':
+            setError(data.error || 'Failed to start checkout process. Please try again or contact support if the problem persists.')
+            console.error('Subscription start failed:', {
+              code: data.code,
+              error: data.error,
+              status: response.status,
+              fullData: data
+            })
+            break
+          case 'STRIPE_CUSTOMER_NOT_FOUND':
+            setError(data.error || 'Account issue detected. Please try signing out and back in, or contact support.')
+            console.error('Stripe customer not found:', {
+              code: data.code,
+              error: data.error,
+              details: data.details,
+              status: response.status
+            })
+            break
           default:
-            setError(data.error || 'Failed to start checkout. Please try again.')
-            console.error('Unknown error code:', data.code, data)
+            setError(data.error || `Failed to start checkout (Status: ${response.status}). Please try again.`)
+            console.error('Unknown error code:', {
+              code: data.code,
+              error: data.error,
+              status: response.status,
+              fullData: data
+            })
         }
+        setLoading(null)
         return
       }
 

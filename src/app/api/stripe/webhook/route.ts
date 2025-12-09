@@ -17,13 +17,14 @@ export async function POST(request: NextRequest) {
 
     // Forward webhook to backend
     // Backend will verify signature and handle events
+    // Important: Forward raw body (not JSON) to preserve Stripe signature verification
     const backendResponse = await fetch(`${BACKEND_URL}/api/stripe/webhook`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json', // Backend expects JSON, but body is raw text
         'stripe-signature': signature,
       },
-      body: body,
+      body: body, // Raw body as received from Stripe
     })
 
     const data = await backendResponse.json().catch(() => ({ received: true }))

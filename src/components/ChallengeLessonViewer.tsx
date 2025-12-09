@@ -836,20 +836,20 @@ export default function ChallengeLessonViewer({ lesson, courseId, session, initi
       if (savedCode && savedCode.trim().length > 0) {
         setCode(savedCode)
         lastSavedCodeRef.current = savedCode
-        setLoadedFromDB(true)
-        setIsLoadingCode(false)
-        return
-      }
+      setLoadedFromDB(true)
+      setIsLoadingCode(false)
+      return
+    }
     }
 
     // Priority 2: If no saved code and hook is done loading, use initial code immediately
     if (!progressLoading && (!studentProgress || !studentProgress.files || studentProgress.files.length === 0)) {
       // No artificial delay - use initial code right away
-      const initialCode = lesson.initialCode || getDefaultSolidityTemplate()
-      setCode(initialCode)
-      lastSavedCodeRef.current = initialCode
-      setLoadedFromDB(false)
-      setIsLoadingCode(false)
+        const initialCode = lesson.initialCode || getDefaultSolidityTemplate()
+        setCode(initialCode)
+        lastSavedCodeRef.current = initialCode
+        setLoadedFromDB(false)
+        setIsLoadingCode(false)
       return
     }
     
